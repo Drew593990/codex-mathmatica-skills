@@ -1,0 +1,4 @@
+interface:
+  display_name: "Paper Proposition Mathematica"
+  short_description: "Wolfram/Mathematica style template for reproducing paper propositions"
+  default_prompt: "Use $paper-proposition-mathematica to reproduce an economics paper proposition in the user's Mathematica naming and section style."

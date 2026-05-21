@@ -1,0 +1,13 @@
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+__pycache__/
+.ipynb_checkpoints/
+prop_outputs/
+*_outputs/
+*.png
+*.svg
+*.csv
+*.pdf
+*.nb~
