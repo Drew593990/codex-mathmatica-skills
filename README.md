@@ -1,6 +1,6 @@
-# Codex Mathematica Skills
+# Codex Mathmatica Skills
 
-Codex skills for Wolfram/Mathematica-based mathematical modeling and economics paper proposition replication.
+Codex skills matching the local `mathmatica-user` and `paper-proposition-mathematica` skill names. They are used for Wolfram/Mathematica-based mathematical modeling and economics paper proposition replication.
 
 ## Skills
 
@@ -21,6 +21,12 @@ The `paper-proposition-mathematica` skill now includes stricter quality gates:
 - hard-fails generated `.wl` scripts with `Exit[1]` when checks are false or malformed;
 - includes `scripts/validate_wl_derivation.py` for text and runtime validation;
 - includes a bundled default style example under `examples/`.
+
+## Included Example And Validator
+
+- Style example: [`skills/paper-proposition-mathematica/examples/mfn-rpm-nonash-competition-style.wl`](skills/paper-proposition-mathematica/examples/mfn-rpm-nonash-competition-style.wl)
+- Validator: [`skills/paper-proposition-mathematica/scripts/validate_wl_derivation.py`](skills/paper-proposition-mathematica/scripts/validate_wl_derivation.py)
+- Style guide: [`skills/paper-proposition-mathematica/references/mathematica-style-guide.md`](skills/paper-proposition-mathematica/references/mathematica-style-guide.md)
 
 ## Installation
 
