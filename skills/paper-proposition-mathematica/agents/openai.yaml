@@ -1,4 +1,4 @@
 interface:
   display_name: "Paper Proposition Mathematica"
-  short_description: "Wolfram/Mathematica style template for reproducing paper propositions"
-  default_prompt: "Use $paper-proposition-mathematica to reproduce an economics paper proposition in the user's Mathematica naming and section style."
+  short_description: "Style-exemplar WL derivations"
+  default_prompt: "Use $paper-proposition-mathematica to reproduce an economics paper proposition in Wolfram Language style: inspect user-provided style exemplar files, or the bundled example when none is provided, then run step-by-step derivations and assemble a human-readable .wl script with explicit FOCs, sol...All, First @ rules, Associations, summaryRows, summaryGrid, and checks."

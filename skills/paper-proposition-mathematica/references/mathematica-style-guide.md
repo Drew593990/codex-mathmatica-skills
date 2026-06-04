@@ -1,74 +1,200 @@
 # Mathematica Style Guide for Paper Proposition Replication
 
-This reference captures a notebook/script style for reproducing economics paper propositions with Wolfram Language. It is designed for symbolic derivations, equilibrium checks, threshold comparisons, and clear final output tables.
+This guide captures a reusable Mathematica workflow for economics/game-theory paper derivations. The priority is a human-readable `.wl` derivation script that looks close to the user's provided style examples: ordered economic sections, explicit intermediate objects, visible symbolic outputs, `Association`, and final `Grid` summaries. A `.nb` is optional and should be generated only when the user asks for it.
 
-## Script Skeleton
+## Style-Exemplar WL Protocol
+
+For the user's model derivation tasks:
+
+1. Inspect representative style-exemplar files when available. If the user gives a folder, sample several `.wl`, `.m`, and `.nb` files, prioritizing files whose names or contents match the current model family.
+2. Run Mathematica step by step with small kernel inputs while deriving. Do not treat a single final script run as the whole derivation process.
+3. Assemble a complete `.wl` script after the derivation is clear. The `.wl` is the main artifact.
+4. Keep the output of each economic step visible in the `.wl` style: FOC, solution list, selected solution, threshold equation, threshold roots, feasible region, `Association`, and final `Grid`.
+5. Export CSV/check tables only as verification artifacts. Generate `.nb` only when explicitly requested.
+
+If no user-provided style exemplar is available, use the bundled default example `examples/mfn-rpm-nonash-competition-style.wl`. It is a runnable `.wl` script that preserves notebook-code style without requiring a `.nb` file.
+
+When stepwise input is piped through `wolfram.exe -noprompt`, set the output folder explicitly because `$InputFileName` is empty. On Windows, direct `wolfram.exe -script` can be unreliable for raw Chinese strings in UTF-8 `.wl` files; if this happens, keep the `.wl` ASCII-only or encode Chinese labels with Wolfram escapes / `FromCharacterCode`.
+
+## WL Script Must Match the Style Exemplar
+
+The `.wl` is the main deliverable unless the user explicitly asks for `.nb`. Do not produce a compact batch exporter as the main script. The script should read like the user's provided Mathematica/WL examples:
+
+- begin with `ClearAll["Global`*"];`;
+- define `$Assumptions` early;
+- use section comments and step comments;
+- define functions with patterns, e.g. `piUDisc[w1_, w2_] := ...`;
+- derive FOCs explicitly, e.g. `focDisc = {...}`;
+- solve full systems, e.g. `solDiscW = FullSimplify[Solve[focDisc, {w1, w2}], Assumptions -> $Assumptions]`;
+- select rules explicitly, e.g. `discRules = First @ solDiscW`;
+- collect regime results into `discEq`, `mfnEq`, `discRPMEq`, `mfnRPMEq`, or analogous `Association` objects;
+- build `summaryRows` and `summaryGrid = Grid[...]`;
+- put `summaryGrid` on its own final line without a semicolon;
+- leave key objects unsuppressed, matching the notebook code style.
+
+The bundled default example uses this same pattern. In particular, copy its high-level structure rather than its economic content: assumptions, primitives, one block per regime, FOC solving, `Association` result objects, and final `summaryGrid`.
+
+Use this style check before completion:
+
+```wolfram
+wlText = Import[wlPath, "Text"];
+wlStyleChecks = {
+  StringContainsQ[wlText, "ClearAll[\"Global`*\"]"],
+  StringContainsQ[wlText, "$Assumptions"],
+  StringContainsQ[wlText, "FullSimplify"],
+  StringContainsQ[wlText, "Solve"],
+  StringContainsQ[wlText, "First @"] || StringContainsQ[wlText, "First["],
+  StringContainsQ[wlText, "Association"] || StringContainsQ[wlText, "<|"],
+  StringContainsQ[wlText, "summaryRows"],
+  StringContainsQ[wlText, "summaryGrid"],
+  StringContainsQ[wlText, "Grid["],
+  StringContainsQ[wlText, "checks"]
+};
+If[! And @@ wlStyleChecks, Print["WL_STYLE_VALIDATION_FAILED"]; Exit[1]];
+```
+
+## Boolean Checks and Hard Fail
+
+Every `checks` row must have a single Boolean result. Convert lists and benchmark objects into strict Boolean claims before adding them to `checks`. Wrap symbolic checks as `TrueQ[FullSimplify[claim, Assumptions -> ass]]`; never put raw `And @@ focChecks` or a possible `ConditionalExpression` directly into `checks`.
+
+For self-contained derivations, do not hand-enter a complete final answer table in the check block, such as `expectedCournotEq = Association[...]`, and then compare the derived result to it. That is visually too close to skipping the derivation. Prefer checks that refer back to primitives already defined in the model:
+
+```wolfram
+quantityConsistencyClaims = {
+  eq["Q"] == Total[eq /@ {"q1", "q2", "q3"}]
+};
+
+priceConsistencyClaims = {
+  eq["P"] == P[eq["q1"], eq["q2"], eq["q3"]]
+};
+
+profitConsistencyClaims = {
+  eq["pi1"] == pi1[eq["q1"], eq["q2"], eq["q3"]]
+};
+```
+
+When the paper itself states target formulas, compare against them only after the model has already been solved, label the block as `paperClaim...`, and comment that the formulas are an external benchmark from the proposition.
+
+For numeric checks, do not write `numericBenchmark == Association["p1" -> ..., ...]` from hand-entered expected values. Use one of these patterns instead:
+
+```wolfram
+numericRules = {a -> 10, c1 -> 2, c2 -> 4, gamma -> 1/2};
+numericSol = First @ NSolve[focSystem /. numericRules, {p1, p2}, Reals];
+
+numericSolutionCheck = TrueQ[
+  Chop[Norm[({p1, p2} /. symbolicSol /. numericRules) - ({p1, p2} /. numericSol)]] == 0
+];
+```
+
+Or verify numeric residuals directly from the primitives:
+
+```wolfram
+numericFOCResidualCheck = TrueQ[
+  Chop[Norm[Subtract @@@ (focSystem /. symbolicSol /. numericRules)]] == 0
+];
+```
+
+Good:
+
+```wolfram
+focChecks = FullSimplify[focSystem /. solRules, Assumptions -> $Assumptions];
+numericRules = {a -> 10, c1 -> 2, c2 -> 4, gamma -> 1/2};
+numericSol = First @ NSolve[focSystem /. numericRules, {p1, p2}, Reals];
+numericResidual = Chop[Norm[Subtract @@@ (focSystem /. solRules /. numericRules)]];
+
+checks = {
+  {"FOC system holds at selected solution",
+   TrueQ[FullSimplify[And @@ focChecks, Assumptions -> $Assumptions]]},
+  {"Numeric FOC residual is zero",
+   TrueQ[numericResidual == 0]},
+  {"Symbolic and numeric prices agree",
+   TrueQ[Chop[Norm[({p1, p2} /. solRules /. numericRules) - ({p1, p2} /. numericSol)]] == 0]}
+};
+```
+
+Bad:
+
+```wolfram
+checks = {
+  {"FOC system holds", focChecks},              (* list, not Boolean *)
+  {"FOC system holds after conjunction", And @@ focChecks}, (* can become ConditionalExpression *)
+  {"Numeric benchmark", numericBenchmark},      (* Association, not Boolean *)
+  {"Numeric benchmark matches", numericBenchmark == Association["p1" -> 1]} (* hand-entered answer table *)
+};
+```
+
+Every generated `.wl` must fail the process when checks are false or malformed:
+
+```wolfram
+checkResults = Last /@ checks;
+checksAreBoolean = VectorQ[checkResults, BooleanQ];
+allChecksTrue = TrueQ[checksAreBoolean && And @@ checkResults];
+
+If[! allChecksTrue,
+   Print["CHECKS_FAILED_OR_MALFORMED"];
+   Print[checks];
+   Exit[1]
+];
+```
+
+If a runtime is available, validate the final file with `scripts/validate_wl_derivation.py`. This catches scripts that merely contain a `checks` variable but never prove that all checks are Boolean `True`.
+
+## Basic Cell Skeleton
 
 ```wolfram
 ClearAll["Global`*"];
 
-scriptDir = If[StringQ[$InputFileName] && $InputFileName =!= "",
-   DirectoryName[$InputFileName],
-   Directory[]
-];
-
-outDir = FileNameJoin[{scriptDir, "prop_outputs"}];
-If[! DirectoryQ[outDir], CreateDirectory[outDir]];
+(* ============================== *)
+(* 0. 参数假设 *)
+(* ============================== *)
 
 $Assumptions = \[Alpha] > 0 && \[Beta] > 0 &&
    \[Gamma] >= 0 && \[Beta] > \[Gamma];
 ass = $Assumptions;
 toS[expr_] := ToString[expr, InputForm];
+
+$Assumptions
 ```
 
-For headless `.wl` scripts, ASCII variables such as `alpha`, `beta`, `gamma` are acceptable if comments map them to paper notation. For notebook-style work, prefer `\[Alpha]`, `\[Beta]`, `\[Gamma]` when that matches the source paper.
+Use Greek letters such as `\[Alpha]`, `\[Beta]`, `\[Gamma]` only when that matches the source code or paper. In runnable `.wl` scripts, ASCII names are acceptable and often more reliable on Windows, but comments should map them to the paper notation when needed.
 
 ## Section Order
 
-Use clear section blocks. English comments are preferred for open-source scripts.
-
-```wolfram
-(* Utility function: derive demand and inverse demand *)
-
-(* 1. Compute the non-collusive equilibrium under ET *)
-(* step 1. Build profit functions for the two downstream firms *)
-(* step 2. Solve the upstream firms' optimization problem *)
-
-(* 2. Solve wholesale prices and profits under collusion *)
-
-(* 3. Compute firm i's best response when deviating under ET *)
-
-(* 4. Compute the critical discount factor Delta_ET *)
-```
-
-For asymmetric regimes:
-
-```wolfram
-(* Asymmetric regime: one side follows ET, the other follows NET. *)
-(* 1. Solve the non-cooperative equilibrium *)
-(* 2. Compute the collusive equilibrium *)
-(* 3. Compute both deviation payoffs and allocate collusive total profit with share x *)
-```
-
-## Mature MFN/RPM Style
-
-Use separator comments for the mechanical model blocks:
+Use clear separator comments and Chinese economic labels:
 
 ```wolfram
 (* ============================== *)
-(* 0. Assumptions *)
+(* 1. 模型设定：需求、利润和约束 *)
 (* ============================== *)
 
 (* ============================== *)
-(* Demand system *)
+(* 2. No RPM：经销商零售定价问题 *)
+(* ============================== *)
+
+(* step1. 构造经销商利润函数 *)
+(* step2. 求一阶条件 FOC *)
+(* step3. 求 Hessian / SOC *)
+(* step4. 求零售价格反应函数 *)
+
+(* ============================== *)
+(* 3. No RPM：合谋价格和外部选择阈值 *)
+(* ============================== *)
+
+(* step1. 先写出约束绑定方程 *)
+(* step2. 求所有根 *)
+(* step3. 选择经济上有效的根 *)
+(* step4. 推导非负批发价边界和分区域均衡 *)
+
+(* ============================== *)
+(* 4. RPM：竞争、合谋和可行性阈值 *)
 (* ============================== *)
 
 (* ============================== *)
-(* Profit functions *)
+(* 5. 阈值排序、数值检验和最终表格 *)
 (* ============================== *)
 ```
 
-Then use scenario comments for economic regimes:
+For MFN/RPM-style multi-regime models, keep the user's established scenario comments:
 
 ```wolfram
 (* Stage 1: U chooses w1,w2 *)
@@ -78,31 +204,54 @@ Then use scenario comments for economic regimes:
 (* MFN + RPM *)
 ```
 
-## Scenario Naming
+## Naming Rules
 
-Use compact names for final result objects:
-
-```wolfram
-discEq       (* NoMFN + NoRPM / discriminatory wholesale prices *)
-mfnEq        (* MFN + NoRPM *)
-discRPMEq    (* NoMFN + RPM *)
-mfnRPMEq     (* MFN + RPM *)
-```
-
-For longer derivation objects, keep the full scenario in the name:
+Use the user's compact but explicit names:
 
 ```wolfram
+p2BRNoMFN[w1_, w2_]
 piUNoMFNNoRPM[w1_, w2_]
 focNoMFNNoRPM
 solNoMFNNoRPMAll
-solNoMFNNoRPM = First[solNoMFNNoRPMAll]
+solNoMFNNoRPM = First @ solNoMFNNoRPMAll
 ```
 
-The `sol...All` then `sol... = First[sol...All]` pattern is preferred over repeatedly indexing into a raw solution list.
+For collusion, deviation, and thresholds:
+
+```wolfram
+CollusioninET[w1_, w2_]
+FOCcolw1
+FOCcolw2
+solCollusioninET
+WstarinETcoll
+MdevinETcoll
+DeltaET
+OmegaNoRPMM
+OmegaNoRPMW0
+```
+
+Avoid generic names when a regime-specific name is available. Prefer `pi...`, `foc...`, `sol...All`, `Wstar...`, `Mstar...`, `Collusion...`, `Mdev...`, `Delta...`, and `Omega...`.
+
+## Symbol Discipline
+
+After model primitives are set, do not introduce shortcut symbols like `A`, `B`, `K`, `L`, or `thetaBar` just to make formulas shorter. This often makes the derivation look unlike the user's notebooks and hides economic meaning.
+
+If an abbreviation is unavoidable:
+
+```wolfram
+(* B 表示 No RPM 对称零售价中批发价的有效斜率；下面立即检验其展开式 *)
+B = 1 + \[Gamma] + \[Gamma] \[Rho];
+checkBExpand = FullSimplify[
+   B == 1 + \[Gamma] + \[Gamma] \[Rho],
+   Assumptions -> $Assumptions
+];
+```
+
+Prefer writing the expanded expression in final outputs unless the paper itself defines the abbreviation.
 
 ## Regime Result Associations
 
-At the end of each regime, collect all economically relevant objects into an `Association`.
+At the end of each regime, collect all economically relevant objects into an `Association`:
 
 ```wolfram
 discEq = Association[
@@ -120,6 +269,8 @@ discEq = Association[
     Assumptions -> $Assumptions],
   "pi1" -> 0
 ];
+
+discEq
 ```
 
 Use the same key order across regimes:
@@ -128,27 +279,27 @@ Use the same key order across regimes:
 {"w1", "w2", "p1", "p2", "q1", "q2", "piU", "pi2", "pi1"}
 ```
 
-If a profit is mechanically zero, write `"pi1" -> 0` or `"pi2" -> 0` directly instead of deriving a noisy zero expression.
+If a regime makes a profit mechanically zero, write `"pi1" -> 0` or `"pi2" -> 0` directly.
 
 ## Final Output List and Grid
 
-For multi-regime comparison, prefer a final `summaryRows` list plus a `summaryGrid`.
+For multi-regime comparison, use a final WL-facing grid:
 
 ```wolfram
 summaryRows4 = {
-  {"Wholesale price (w1)", discEq["w1"], mfnEq["w1"], discRPMEq["w1"], mfnRPMEq["w1"]},
-  {"Wholesale price (w2)", discEq["w2"], mfnEq["w2"], discRPMEq["w2"], mfnRPMEq["w2"]},
-  {"Retail price (p1)", discEq["p1"], mfnEq["p1"], discRPMEq["p1"], mfnRPMEq["p1"]},
-  {"Retail price (p2)", discEq["p2"], mfnEq["p2"], discRPMEq["p2"], mfnRPMEq["p2"]},
-  {"Quantity (q1)", discEq["q1"], mfnEq["q1"], discRPMEq["q1"], mfnRPMEq["q1"]},
-  {"Quantity (q2)", discEq["q2"], mfnEq["q2"], discRPMEq["q2"], mfnRPMEq["q2"]},
-  {"Upstream profit (piU)", discEq["piU"], mfnEq["piU"], discRPMEq["piU"], mfnRPMEq["piU"]},
-  {"Dealer profit (pi2)", discEq["pi2"], mfnEq["pi2"], discRPMEq["pi2"], mfnRPMEq["pi2"]},
-  {"Dealer profit (pi1)", discEq["pi1"], mfnEq["pi1"], discRPMEq["pi1"], mfnRPMEq["pi1"]}
+  {"批发价 (w_1)", discEq["w1"], mfnEq["w1"], discRPMEq["w1"], mfnRPMEq["w1"]},
+  {"批发价 (w_2)", discEq["w2"], mfnEq["w2"], discRPMEq["w2"], mfnRPMEq["w2"]},
+  {"零售价 (p_1)", discEq["p1"], mfnEq["p1"], discRPMEq["p1"], mfnRPMEq["p1"]},
+  {"零售价 (p_2)", discEq["p2"], mfnEq["p2"], discRPMEq["p2"], mfnRPMEq["p2"]},
+  {"销量 (q_1)", discEq["q1"], mfnEq["q1"], discRPMEq["q1"], mfnRPMEq["q1"]},
+  {"销量 (q_2)", discEq["q2"], mfnEq["q2"], discRPMEq["q2"], mfnRPMEq["q2"]},
+  {"上游利润 (pi_U)", discEq["piU"], mfnEq["piU"], discRPMEq["piU"], mfnRPMEq["piU"]},
+  {"经销商利润 (pi_2)", discEq["pi2"], mfnEq["pi2"], discRPMEq["pi2"], mfnRPMEq["pi2"]},
+  {"经销商利润 (pi_1)", discEq["pi1"], mfnEq["pi1"], discRPMEq["pi1"], mfnRPMEq["pi1"]}
 };
 
 summaryGrid4 = Grid[
-  Prepend[summaryRows4, {"Object", "NoMFN+NoRPM", "MFN+NoRPM", "NoMFN+RPM", "MFN+RPM"}],
+  Prepend[summaryRows4, {"对象", "NoMFN+NoRPM", "MFN+NoRPM", "NoMFN+RPM", "MFN+RPM"}],
   Frame -> All,
   ItemStyle -> Directive[14],
   Alignment -> {Left, Center, Center, Center, Center}
@@ -157,173 +308,102 @@ summaryGrid4 = Grid[
 summaryGrid4
 ```
 
-For two-regime or three-regime propositions, keep the same structure with shorter headers:
+For threshold propositions, use:
 
 ```wolfram
-summaryRows = {
-  {"Delta", deltaET, deltaAS, deltaNE},
-  {"Deviation profit", MdevinETcoll, MdevAS, MdevinNETcoll},
-  {"Punishment profit", MstarinET, MstarAS, MstarinNET}
+thresholdRows = {
+  {"No RPM 诱导垄断价格阈值", OmegaNoRPMM},
+  {"No RPM 非负批发价可行边界", OmegaNoRPMW0},
+  {"RPM 诱导垄断价格阈值", OmegaRPMM}
 };
-summaryGrid = Grid[
-  Prepend[summaryRows, {"Object", "ET", "AS", "NET"}],
+
+thresholdGrid = Grid[
+  Prepend[thresholdRows, {"对象", "表达式"}],
   Frame -> All,
   ItemStyle -> Directive[14],
-  Alignment -> {Left, Center, Center, Center}
+  Alignment -> {Left, Center}
 ];
-summaryGrid
+
+thresholdGrid
 ```
 
-## Common Primitives
+## Full Threshold Derivation Requirement
 
-- `U`: utility or surplus function used to derive demand.
-- `eq1`, `eq2`: FOCs from primitive utility or inverse demand.
-- `solDemand`: solved demand system.
-- `D1[p1_, p2_]`, `D2[p1_, p2_]`: direct demand functions.
-- `p1`, `p2`: retail prices.
-- `q1`, `q2`: quantities.
-- `w1`, `w2`: wholesale prices.
-- `T1`, `T2`: fixed fees or franchise fees.
-
-## Regime Suffixes
-
-- `ET`: exclusive territories.
-- `NET`: non-exclusive territories.
-- `AS`: asymmetric regime.
-- `RPM`: resale price maintenance.
-- `MFN`: most-favored-nation clause.
-
-## Price, Quantity, and Profit Objects
-
-Use regime suffixes:
+Do not jump directly to a threshold formula. Show the whole chain:
 
 ```wolfram
-p1ET[w1_, w2_]
-p2ET[w1_, w2_]
-q1ET[w1_, w2_]
-q2ET[w1_, w2_]
-M1ET[w1_, w2_]
-M2ET[w1_, w2_]
+constraintBindNoRPM = piDealerNoRPM[p] == \[CapitalOmega];
+solConstraintBindNoRPMAll = FullSimplify[
+   Solve[constraintBindNoRPM, p, Reals],
+   Assumptions -> $Assumptions
+];
+
+pNoRPMCol = FullSimplify[
+   p /. solConstraintBindNoRPMAll[[1]],
+   Assumptions -> $Assumptions
+];
+
+wNoRPMCol = FullSimplify[
+   wNoRPMFromP[pNoRPMCol],
+   Assumptions -> $Assumptions
+];
+
+OmegaNoRPMW0 = FullSimplify[
+   \[CapitalOmega] /. First @ Solve[wNoRPMCol == 0, \[CapitalOmega], Reals],
+   Assumptions -> $Assumptions
+];
+
+regionNoRPMCanInduceM = FullSimplify[
+   0 <= \[CapitalOmega] <= OmegaNoRPMM,
+   Assumptions -> $Assumptions
+];
 ```
 
-For NET:
+For each region, solve or state the equilibrium object inside that region, not only the boundary:
 
 ```wolfram
-p1NET[w1_, w2_] := w1;
-p2NET[w1_, w2_] := w2;
-q1NET[w1_, w2_] := D1[p1NET[w1, w2], p2NET[w1, w2]] // Simplify;
-M1NET[w1_, w2_] := q1NET[w1, w2]*p1NET[w1, w2] // Simplify;
-```
+NoRPMRegionI = Association[
+  "condition" -> 0 <= \[CapitalOmega] <= OmegaNoRPMM,
+  "p" -> pM,
+  "w" -> wNoRPMInduceM
+];
 
-## FOCs, Solutions, and Equilibrium Values
-
-```wolfram
-FOCM1w1inET = D[M1ET[w1, w2], w1];
-FOCM2w2inET = D[M2ET[w1, w2], w2];
-solMiFOCinET = Solve[{FOCM1w1inET == 0, FOCM2w2inET == 0}, {w1, w2}, Reals] // Simplify;
-
-WstarinET = w1 /. solMiFOCinET[[1]] // Simplify;
-MstarinET = M1ET[WstarinET, WstarinET] // Simplify;
-```
-
-Collusion and deviation:
-
-```wolfram
-CollusioninET[w1_, w2_] = M1ET[w1, w2] + M2ET[w1, w2] // Simplify;
-FOCcolw1 = D[CollusioninET[w1, w2], w1] // Simplify;
-FOCcolw2 = D[CollusioninET[w1, w2], w2] // Simplify;
-solCollusioninET = Solve[{FOCcolw1 == 0, FOCcolw2 == 0}, {w1, w2}, Reals] // Simplify;
-
-WstarinETcoll = w1 /. solCollusioninET[[1]] // Simplify;
-MinETcoll = M1ET[WstarinETcoll, WstarinETcoll] // Simplify;
-
-M1devETcoll[w1_] = M1ET[w1, WstarinETcoll] // Simplify;
-FOCM1devETcoll = D[M1devETcoll[w1], w1] // Simplify;
-soldevCollinET = Solve[FOCM1devETcoll == 0, w1, Reals] // Simplify;
-WstarindevETcoll = w1 /. soldevCollinET[[1]] // Simplify;
-MdevinETcoll = M1ET[WstarindevETcoll, WstarinETcoll] // Simplify;
-```
-
-Threshold:
-
-```wolfram
-DeltaET = (MdevinETcoll - MinETcoll)/(MdevinETcoll - MstarinET) // Simplify;
-```
-
-## Asymmetric Sharing Pattern
-
-Use `x` for the collusive-profit share and equalize the two incentive constraints.
-
-```wolfram
-Clear[x];
-TotalCollAS = CollusionAS[W1colAS, W2colAS] // Simplify;
-M1CollShareAS[x_] = x*TotalCollAS;
-M2CollShareAS[x_] = (1 - x)*TotalCollAS;
-
-Delta1AS[x_] := (M1devAS - M1CollShareAS[x])/(M1devAS - M1starAS) // FullSimplify;
-Delta2AS[x_] := (M2devAS - M2CollShareAS[x])/(M2devAS - M2starAS) // FullSimplify;
-
-solxAS = Solve[Delta1AS[x] == Delta2AS[x], x, Reals] // Simplify;
-xStarAS = x /. solxAS[[1]] // FullSimplify;
-DeltaAS = Delta1AS[x] /. x -> xStarAS // FullSimplify;
-```
-
-If a deviation optimum is at a boundary, document it explicitly:
-
-```wolfram
-(* Boundary deviation: with nonnegative wholesale price w1 >= 0, the optimum is w1 = 0. *)
-W1devAS = 0;
+NoRPMRegionII = Association[
+  "condition" -> OmegaNoRPMM < \[CapitalOmega] <= OmegaNoRPMW0,
+  "p" -> pNoRPMCol,
+  "w" -> wNoRPMCol
+];
 ```
 
 ## Commands to Prefer
 
 - FOC: `D[profit, var] == 0`
-- Closed-form systems: `Solve[eqs, vars, Reals] // Simplify`
-- Strong simplification: `FullSimplify[expr, ass]`
-- Inequality/ranking proof: `FullSimplify[deltaET < deltaNE, ass]`
-- Sign inspection: `Factor[Together[deltaNE - deltaET]]`
-- Feasible region: `Reduce[{constraints, expr > 0}, vars, Reals]`
-- Numeric sanity check: `N[expr /. {\[Beta] -> 2, \[Gamma] -> 1}, 16]`
-- Export symbolic rows: `Export[path, rows, "CSV", CharacterEncoding -> "UTF8"]`
+- Solve closed-form systems: `Solve[eqs, vars, Reals]//Simplify`
+- Strong simplification: `FullSimplify[expr, Assumptions -> $Assumptions]`
+- Hessian/SOC: `D[profit, {{vars}, 2}]`, `Eigenvalues[...]`, `NegativeDefiniteMatrixQ[...]` where useful
+- Feasible region: `Reduce[{constraints}, vars, Reals]`
+- Ranking proof: `FullSimplify[OmegaNoRPMM < OmegaRPMM, Assumptions -> $Assumptions]`
+- Sign inspection: `Factor[Together[OmegaRPMM - OmegaNoRPMM]]`
+- Numeric sanity check: `N[expr /. {\[Gamma] -> 1, \[Rho] -> 1, \[CapitalOmega] -> 0.06}, 16]`
 
 ## Verification Rows
 
-Every serious replication script should export a checks table:
+Every serious replication should include checks, but checks are not the main user-facing output:
 
 ```wolfram
 checks = {
-   {"paper formula for Delta_ET reproduced",
-    FullSimplify[DeltaET == claimedDeltaET, ass]},
-   {"denominator of Delta_ET positive",
-    FullSimplify[Denominator[Together[DeltaET]] > 0, ass]},
-   {"ranking Delta_ET < Delta_NE",
-    FullSimplify[DeltaET < DeltaNE, ass]}
+   {"FOC 解与声明的反应函数一致",
+    FullSimplify[p2BRNoMFN[w1, w2] == claimedP2BR, Assumptions -> $Assumptions]},
+   {"Hessian 满足二阶条件",
+    FullSimplify[And @@ Thread[Eigenvalues[hessianDealer] < 0], Assumptions -> $Assumptions]},
+   {"阈值排序成立",
+    FullSimplify[OmegaNoRPMM <= OmegaNoRPMW0 <= OmegaRPMM, Assumptions -> $Assumptions]}
 };
 
 checkRows = Join[
    {{"Check", "Result"}},
    ({#[[1]], toS[#[[2]]]} & /@ checks)
 ];
-
-Export[FileNameJoin[{outDir, "proposition_checks.csv"}],
-  checkRows, "CSV", CharacterEncoding -> "UTF8"];
 ```
 
-## Plotting Defaults
-
-When formulas are homogeneous in `beta` and `gamma`, plot against `r = gamma/beta`.
-
-```wolfram
-dET[r_] := FullSimplify[DeltaET /. {\[Beta] -> 1, \[Gamma] -> r}];
-
-Plot[
- Evaluate[{dET[r], dAS[r], dNE[r]}],
- {r, 0, 0.999},
- Frame -> True,
- PlotLegends -> {"delta_ET", "delta_AS", "delta_NE"},
- GridLines -> {Range[0, 1, 0.1], Automatic},
- ImageSize -> 1050
-]
-```
-
-Also export difference plots such as `delta_NE - delta_ET`, `delta_AS - delta_NE`, and `delta_AS - delta_ET`; these are often more informative than level plots.
+Export `checkRows` to CSV after the `.wl` derivation is complete.

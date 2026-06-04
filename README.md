@@ -1,13 +1,26 @@
 # Codex Mathematica Skills
 
-Two Codex skills for Wolfram/Mathematica-based mathematical modeling and economics paper proposition replication.
+Codex skills for Wolfram/Mathematica-based mathematical modeling and economics paper proposition replication.
 
 ## Skills
 
 - `mathmatica-user`: general Wolfram Language modeling, symbolic derivation, equilibrium solving, formula verification, and numeric simulation.
-- `paper-proposition-mathematica`: economics paper proposition replication style, including notation, section structure, result associations, summary grids, checks, and plotting conventions.
+- `paper-proposition-mathematica`: economics paper proposition replication style, including step-by-step derivation, style-exemplar `.wl` output, threshold and regime solving, result associations, summary grids, and strict verification checks.
 
 The spelling `mathmatica-user` is intentional because it matches the original skill trigger used in the local workflow.
+
+## What Changed In This Version
+
+The `paper-proposition-mathematica` skill now includes stricter quality gates:
+
+- derives from model primitives before final formulas;
+- keeps intermediate FOCs, SOC/Hessian checks, solution lists, selected rules, regime associations, and summary grids visible;
+- forbids hand-entered `expected...Eq = Association[...]` answer tables unless clearly labeled as external paper claims;
+- forbids hand-entered numeric benchmark answer tables;
+- requires every `checks` result to be a strict Boolean `True` or `False`;
+- hard-fails generated `.wl` scripts with `Exit[1]` when checks are false or malformed;
+- includes `scripts/validate_wl_derivation.py` for text and runtime validation;
+- includes a bundled default style example under `examples/`.
 
 ## Installation
 
@@ -34,7 +47,7 @@ with the actual path on your machine.
 
 - These skills are workflow templates. They do not include Wolfram/Mathematica itself.
 - Generated derivation scripts should be run locally and verified with explicit checks before results are treated as reproduced.
-- The paper proposition skill includes an additional style guide under `references/`.
+- The paper proposition skill includes a style guide under `references/`, a runnable style exemplar under `examples/`, and a validator under `scripts/`.
 
 ## License
 

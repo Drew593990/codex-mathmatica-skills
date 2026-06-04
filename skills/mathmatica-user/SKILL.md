@@ -1,6 +1,6 @@
 ---
 name: mathmatica-user
-description: Use when the user asks for "mathmatica user", Wolfram Language, Mathematica-based mathematical modeling, symbolic derivation, equilibrium solving, FOC/SOC checks, formula verification, or numeric simulation through the local Wolfram/Mathematica installation.
+description: Use when the user asks for "mathmatica user", Wolfram Language, Mathematica-based mathematical modeling, symbolic derivation, equilibrium solving, FOC/SOC checks, formula verification, or numeric simulation through the local Wolfram/Mathematica installation. If the task involves economics paper propositions, MFN/RPM/ET/NET/common-agency models, the user's Mathematica/WL code style, step-by-step derivation, no one-shot black-box execution, outside-option thresholds, or threshold-constrained equilibria, also use the paper-proposition-mathematica skill and follow its style-exemplar WL-script workflow.
 ---
 
 # Mathmatica User
@@ -20,40 +20,58 @@ Primary responsibilities:
 - Derive first-order conditions, second-order conditions, equilibrium candidates, feasibility constraints, and comparative statics.
 - Use Mathematica/Wolfram to solve and simplify formulas.
 - Run numeric benchmarks and simulations when parameters are specified.
-- Export reproducible artifacts: `.wl` script, symbolic CSV, numeric CSV, formula-check CSV, plots when useful, and a short Markdown report.
+- Export reproducible artifacts. For economics/model-derivation tasks with a user-provided style exemplar, the primary artifact should normally be a complete `.wl` script written close to that exemplar's Mathematica/WL code style. CSV/check tables are secondary verification artifacts. Generate `.nb` only when the user explicitly asks for it.
 
 ## Wolfram Runtime
 
-Prefer a locally installed Wolfram executable. Set the path for the target machine before running scripts:
+Discover the local Wolfram runtime instead of assuming a fixed path. Prefer, in order:
+
+- an explicit path provided by the user;
+- environment variables such as `WOLFRAM_KERNEL`, `WOLFRAM_EXE`, or `WOLFRAMSCRIPT`;
+- commands on `PATH`: `wolfram`, `WolframKernel`, or `wolframscript`;
+- common platform-specific install locations only after checking they exist.
+
+Examples:
 
 ```powershell
-<path-to-wolfram>\wolfram.exe
+& $wolframExe -script '<absolute-path-to-script.wl>'
 ```
 
-Common related executables:
-
-```powershell
-<path-to-wolfram>\WolframKernel.exe
-<path-to-wolfram>\WolframNB.exe
-<path-to-wolfram>\wolframscript.exe
-```
-
-When `wolframscript.exe` does not print command output reliably, prefer:
-
-```powershell
-& '<path-to-wolfram>\wolfram.exe' -script '<absolute-path-to-script.wl>'
-```
-
-For one-off checks, use:
+For one-off checks:
 
 ```powershell
 @'
 2+2
 Exit[]
-'@ | & '<path-to-wolfram>\wolfram.exe' -noprompt
+'@ | & $wolframExe -noprompt
 ```
 
-Use `WolframNB.exe` only when the user explicitly wants the notebook UI opened. Reproducible derivations must still be run through a `.wl` script.
+If `wolframscript` does not print output reliably in the current environment, prefer the discovered `wolfram` / `WolframKernel` executable with `-script` or `-noprompt`.
+
+Use a notebook UI executable only when the user explicitly wants the notebook UI opened. When the user asks for their Mathematica code style or step-by-step model derivation, first run the derivation in small Wolfram chunks, then assemble a complete `.wl` script in the provided style-exemplar style. The final `.wl` should itself show the derivation flow through ordered sections, intermediate assignments, and unsuppressed outputs for key objects.
+
+On some Windows Wolfram setups, raw non-ASCII strings or comments in a UTF-8 `.wl` file can be unreliable under direct `wolfram.exe -script` parsing. For WL scripts with non-ASCII section titles or table labels, either:
+
+- run stepwise cells through `wolfram.exe -noprompt` and set `scriptDir/outDir` explicitly because `$InputFileName` is empty; or
+- keep the final `.wl` ASCII-only by using escaped strings / `FromCharacterCode` for Chinese labels, then verify with `wolfram.exe -script`.
+
+## Routing to the User's Paper WL Style
+
+For economics paper propositions and game-theoretic model derivations, prefer the `paper-proposition-mathematica` skill over the generic script workflow. Trigger this branch when the user mentions any of:
+
+- their Mathematica/WL code style or a style-exemplar folder/file;
+- `MFN`, `RPM`, `ET`, `NET`, common agency, collusion, thresholds, regimes, or proposition replication;
+- step-by-step derivation, no one-shot full-script execution, outside-option thresholds, or threshold-constrained equilibria;
+- a `.nb` or `.wl` example file.
+
+In that branch:
+
+1. Read the user's current style examples if a path is provided or known. If several examples exist, inspect representative `.wl`, `.m`, and `.nb` files before writing new code.
+2. Run Mathematica step by step through small kernel inputs; do not treat a single final script run as the whole derivation process.
+3. Preserve visible intermediate objects: model primitives, demand, profit, FOC, SOC/Hessian, full solution lists, selected solution, threshold equations, feasible regions, rankings, numeric checks, and final grids.
+4. Produce a complete `.wl` as the main deliverable. It should be readable as a human derivation script, not just a compact batch exporter.
+5. Generate `.nb` only if the user explicitly asks for it.
+6. Do not introduce unexplained shortcut symbols after model setup. If a new abbreviation is unavoidable, define it immediately in a comment and verify the expanded expression.
 
 ## Wolfram Language Coding Standard
 
@@ -133,20 +151,24 @@ charOK = FullSimplify[
 
 ### Checks Table
 
-Every derivation script must create a `checks` list:
+Every derivation script must create a `checks` list. Each check result must be exactly one Boolean value (`True` or `False`), not a list, association, symbolic expression, `ConditionalExpression`, numeric benchmark table, or unsimplified formula. Do not put raw `And @@ focChecks` into `checks`; wrap symbolic conjunctions with `TrueQ[FullSimplify[..., Assumptions -> ass]]`:
 
 ```wolfram
 checks = {
    {"FOC system implies claimed equilibrium",
-    FullSimplify[pNw == (1 + B w)/(1 + B), ass]},
+    TrueQ[FullSimplify[pNw == (1 + B w)/(1 + B), ass]]},
    {"Hessian characteristic polynomial matches expected eigenvalues",
-    charOK}
+    TrueQ[charOK]}
 };
 ```
 
-Then export it:
+Then export it and hard-fail the script if any check is malformed or false:
 
 ```wolfram
+checkResults = Last /@ checks;
+checksAreBoolean = VectorQ[checkResults, BooleanQ];
+allChecksTrue = TrueQ[checksAreBoolean && And @@ checkResults];
+
 checkRows = Join[
    {{"Check", "Result"}},
    ({#[[1]], ToString[#[[2]], InputForm]} & /@ checks)
@@ -154,9 +176,15 @@ checkRows = Join[
 
 Export[FileNameJoin[{scriptDir, "task_checks.csv"}], checkRows, "CSV",
    CharacterEncoding -> "UTF8"];
+
+If[! allChecksTrue,
+   Print["CHECKS_FAILED_OR_MALFORMED"];
+   Print[InputForm[checks]];
+   Exit[1]
+];
 ```
 
-The task is not complete if any check result is not `True`.
+The task is not complete if any check result is not a Boolean `True`. For paper proposition scripts, also run the `paper-proposition-mathematica/scripts/validate_wl_derivation.py` validator when available.
 
 ### CSV Export
 
@@ -196,7 +224,7 @@ Export[FileNameJoin[{scriptDir, "task_plot.png"}], plot, ImageResolution -> 160]
 
 ### Markdown Reports
 
-Wolfram can have trouble parsing some non-ASCII strings in `.wl` files depending on file encoding and shell path handling. If a non-English report is required, either:
+Wolfram can have trouble parsing some non-ASCII strings in `.wl` files depending on file encoding and shell path handling. If a Chinese report is required, either:
 
 - keep the generated report text simple and verify the script runs, or
 - write the report with Codex after the Mathematica script exports CSV/PNG artifacts.
@@ -225,7 +253,7 @@ Useful documentation topics:
 - `Export`, `ExportString`, CSV output;
 - `ListLinePlot`.
 
-Context7 examples may be generic. Prefer local execution with `wolfram.exe` as the final authority for this machine.
+Context7 examples may be generic. Prefer local execution with the discovered Wolfram runtime as the final authority for the current environment.
 
 ## Workflow
 
@@ -257,7 +285,9 @@ Context7 examples may be generic. Prefer local execution with `wolfram.exe` as t
      - Hessian characteristic polynomial matches expected eigenvalues.
      - closed-form thresholds match simplified expressions.
      - numeric values match benchmark formulas.
+   - Force every check result through a Boolean claim, for example `TrueQ[FullSimplify[...]]` or an exact equality that evaluates to `True`/`False`.
    - Export the table as CSV.
+   - Add a hard-fail guard using `VectorQ[Last /@ checks, BooleanQ]` and `And @@ (Last /@ checks)`; call `Exit[1]` if malformed or false.
    - Include at least one check for each major result: FOC solution, SOC/Hessian, feasibility threshold, and numeric benchmark.
 
 5. **Run Mathematica**
@@ -266,7 +296,7 @@ Context7 examples may be generic. Prefer local execution with `wolfram.exe` as t
    - Inspect exported CSV files for failures.
    - If `wolfram.exe -script` reports syntax errors, fix and rerun; do not fall back to prose-only derivation.
 
-6. **Report clearly**
+6. **Report in Chinese by default**
    - Summarize the model, derivation path, equilibrium formulas, numeric outputs, and any caveats.
    - Give clickable local file links when reporting artifacts.
 
@@ -280,14 +310,15 @@ For a full derivation task, produce:
 - `<task-name>_checks.csv`: formula/SOC/equilibrium checks.
 - `<task-name>_simulation.csv`: simulation table when applicable.
 - `<task-name>_plot.png`: plot when applicable.
-- `<task-name>_report.md`: short Markdown report.
+- `<task-name>_report.md`: short Chinese Markdown report.
 
 ## Quality Gates
 
 Before claiming completion:
 
 - The Mathematica script must run with exit code `0`.
-- The checks CSV must have no failed check.
+- The checks CSV must have no failed check, and every check result must be exactly one Boolean value.
+- Scripts with malformed checks must exit nonzero through the hard-fail guard; do not accept a script that exits `0` while `checks` contains lists, associations, numeric tables, or symbolic expressions.
 - Numeric benchmark values must be inspected directly.
 - If a plot is generated, the image file must exist and have nonzero size.
 - If comparing against Python or paper formulas, include a short equivalence note for expressions that differ only by algebraic rearrangement.
