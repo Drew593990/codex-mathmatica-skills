@@ -137,7 +137,164 @@ If[! allChecksTrue,
 ];
 ```
 
-If a runtime is available, validate the final file with `scripts/validate_wl_derivation.py`. This catches scripts that merely contain a `checks` variable but never prove that all checks are Boolean `True`.
+If a runtime is available, validate the final file with `scripts/validate_wl_derivation.py`. This catches scripts that merely contain a `checks` variable but never prove that all checks are Boolean `True`. The validator is not the final runtime authority: if it reports `RUNTIME_VALIDATION_SKIPPED`, cannot find Wolfram, or only performs text validation, run the `.wl` directly with the explicit Wolfram executable path and use that command's exit code, stdout success marker, and exported checks CSV as the runtime evidence.
+
+On the user's Windows workstation, prefer this explicit runtime check after confirming the executable exists:
+
+```powershell
+& 'D:\mathmatica\mathmatica14.2\wolfram.exe' -script '<absolute-path-to-script.wl>'
+```
+
+The task is not complete until that command exits `0` and the generated checks all evaluate to Boolean `True`.
+
+## Economic Formula Transformation Checks
+
+Mathematica is allowed to simplify expressions, but the agent must choose the economically meaningful target form at important steps. `FullSimplify` should verify the transformation; it should not replace the agent's judgment about which form matters for the paper.
+
+Use this pattern whenever a raw derivative, constraint, or ranking needs to be rewritten into an interpretable economic object such as inverse hazard, markup, Lerner index, threshold boundary, envelope condition, or welfare comparison:
+
+```wolfram
+(* Raw equation produced directly from primitives. *)
+rawEq = D[objective, x] == 0;
+
+(* Target form chosen by economic interpretation, not copied as a final answer. *)
+targetEq = lhsTarget == rhsTarget;
+
+(* Pick multiplier only when assumptions imply it is nonzero. *)
+multiplierNonzeroCheck =
+  TrueQ[FullSimplify[multiplier != 0, Assumptions -> ass]];
+
+rawResidual =
+  FullSimplify[multiplier*(Subtract @@ List @@ rawEq), Assumptions -> ass];
+
+targetResidual =
+  FullSimplify[multiplier*(Subtract @@ List @@ targetEq), Assumptions -> ass];
+
+transformCheck =
+  TrueQ[
+    multiplierNonzeroCheck &&
+      FullSimplify[rawResidual - targetResidual == 0, Assumptions -> ass]
+  ];
+```
+
+If the two residuals are negatives of each other, check `rawResidual + targetResidual == 0` instead. Keep `rawResidual`, `targetResidual`, and `transformCheck` visible in the `.wl` script.
+
+### Example 1: Price FOC to inverse-hazard markup
+
+For a monopoly model with demand `1 - F[p/q]` and call cost `callCost[q]`, derive the price FOC from primitives first:
+
+```wolfram
+\[Pi]GrossM[p_, q_] := (1 - F[p/q])*(p - callCost[q]);
+densityRule = Derivative[1][F][x_] :> f[x];
+
+focPriceRaw =
+  D[\[Pi]GrossM[p, q], p] == 0;
+
+focPriceWithf =
+  FullSimplify[focPriceRaw /. densityRule, Assumptions -> ass];
+```
+
+Then the agent chooses the target economic form:
+
+```wolfram
+focPriceTarget =
+  (p - callCost[q])/q == (1 - F[p/q])/f[p/q];
+
+priceMultiplierNonzeroCheck =
+  TrueQ[FullSimplify[q*f[p/q] != 0, Assumptions -> ass]];
+
+focPriceRawResidual =
+  FullSimplify[
+    q*(1 - F[p/q]) - (p - callCost[q])*f[p/q],
+    Assumptions -> ass
+  ];
+
+focPriceTargetResidual =
+  FullSimplify[
+    q*f[p/q]*(((p - callCost[q])/q) - ((1 - F[p/q])/f[p/q])),
+    Assumptions -> ass
+  ];
+
+focPriceTransformCheck =
+  TrueQ[
+    priceMultiplierNonzeroCheck &&
+      FullSimplify[
+        focPriceRawResidual + focPriceTargetResidual == 0,
+        Assumptions -> ass
+      ]
+  ];
+```
+
+This proves the raw FOC and the inverse-hazard markup expression are the same condition under `q > 0` and `f[p/q] > 0`.
+
+### Example 2: Ranking and sign inspection
+
+For threshold or welfare comparisons, do not rely on a bare inequality if the sign structure is hidden. Build the difference and inspect its factored rational form:
+
+```wolfram
+rankingDifference =
+  FullSimplify[\[CapitalOmega]RPM - \[CapitalOmega]NoRPM,
+    Assumptions -> ass];
+
+rankingFactors =
+  Factor[Together[rankingDifference]];
+
+rankingCheck =
+  TrueQ[
+    FullSimplify[
+      rankingDifference >= 0,
+      Assumptions -> ass
+    ]
+  ];
+```
+
+If `rankingCheck` is not `True`, use `Reduce` to find the exact parameter region:
+
+```wolfram
+rankingRegion =
+  FullSimplify[
+    Reduce[{rankingDifference >= 0, ass}, parameter, Reals],
+    Assumptions -> ass
+  ];
+```
+
+Report the unconditional ranking only when `rankingCheck` is `True`; otherwise report the region returned by `Reduce`.
+
+### Example 3: Threshold boundary from a binding constraint
+
+For a threshold, show the binding equation, all roots, selected root, and feasibility condition before naming the threshold:
+
+```wolfram
+constraintBind =
+  participationProfit[p] == \[CapitalOmega];
+
+constraintRootsAll =
+  FullSimplify[Solve[constraintBind, p, Reals],
+    Assumptions -> ass];
+
+constraintRootSelected =
+  FullSimplify[p /. constraintRootsAll[[1]], Assumptions -> ass];
+
+thresholdCandidate =
+  FullSimplify[
+    \[CapitalOmega] /. First @ Solve[
+      constraintRootSelected == targetPrice,
+      \[CapitalOmega],
+      Reals
+    ],
+    Assumptions -> ass
+  ];
+
+thresholdFeasibility =
+  FullSimplify[
+    Reduce[{constraintBind, feasibilityConstraints, ass},
+      {p, \[CapitalOmega]},
+      Reals],
+    Assumptions -> ass
+  ];
+```
+
+Only after these objects are visible should the script use a short name such as `OmegaNoRPMM` or `DeltaET`.
 
 ## Basic Cell Skeleton
 
@@ -156,7 +313,7 @@ toS[expr_] := ToString[expr, InputForm];
 $Assumptions
 ```
 
-Use Greek letters such as `\[Alpha]`, `\[Beta]`, `\[Gamma]` only when that matches the source code or paper. In runnable `.wl` scripts, ASCII names are acceptable and often more reliable on Windows, but comments should map them to the paper notation when needed.
+Use Greek letters such as `\[Alpha]`, `\[Beta]`, and `\[Gamma]` whenever they match the source code or paper. In runnable `.wl` scripts, prefer Wolfram escaped Greek symbols over ASCII aliases; escaped forms remain ASCII in the source file while displaying as Greek mathematical objects in Mathematica. Use ASCII aliases only for a documented runtime limitation, and define the mapping immediately.
 
 ## Section Order
 
@@ -202,6 +359,38 @@ For MFN/RPM-style multi-regime models, keep the user's established scenario comm
 (* MFN + NoRPM *)
 (* NoMFN + RPM *)
 (* MFN + RPM *)
+```
+
+## Source-Notation First Rule
+
+When reproducing an economics model from a paper or Markdown source, the source notation has priority over generic coding convenience. Greek variables must be written as Mathematica Greek symbols so they display as Greek mathematical objects in Mathematica. Use English aliases only when a runtime limitation requires them, and then define the mapping immediately.
+
+Good:
+
+```wolfram
+u[\[Theta]_, q_, p_] := \[Theta] q - p
+\[Theta]Hat = p/q
+demand = 1 - F[\[Theta]Hat]
+densityCheck = D[F[\[Theta]], \[Theta]] /. Derivative[1][F][x_] :> f[x]
+```
+
+Bad:
+
+```wolfram
+u[theta_, q_, p_] := theta*q - p
+thetaHat = p/q
+demand = 1 - Ffun[thetaHat]
+```
+
+For auditable step-by-step scripts, use notebook-style input cells, unsuppressed outputs, or a transcript helper. One acceptable helper is:
+
+```wolfram
+show[step_, input_, output_] := (
+  Print["===== STEP ", step, " ====="];
+  Print["INPUT: ", input];
+  Print["OUTPUT: ", InputForm[output]];
+  output
+);
 ```
 
 ## Naming Rules

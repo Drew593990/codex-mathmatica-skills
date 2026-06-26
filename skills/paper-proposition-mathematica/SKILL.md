@@ -37,7 +37,11 @@ Before writing code, read [mathematica-style-guide.md](references/mathematica-st
 - Keep paper objects visible in comments, for example `Pi^N_ET`, `Delta_NE`, and self-enforcement constraints.
 - Preserve the compact Mathematica idiom: `FullSimplify[..., Assumptions -> $Assumptions]`, `Solve[...]`, `First[solAll]`, `D[..., var]`, `x /. sol`.
 - Prefer explicit intermediate objects over one large expression. Future checks should be able to inspect each economic step.
+- Preserve the paper's mathematical notation as Mathematica symbols. If the source uses Greek letters, the `.wl` derivation must use Wolfram Greek symbols such as `\[Theta]`, `\[Alpha]`, `\[Gamma]`, and related decorated notation where possible; the generated Mathematica output should display Greek mathematical objects, not English replacements.
+- Do not use English aliases such as `theta`, `alpha`, `gamma`, `thetaHat`, `thetaBar`, `Ffun`, or `ffun` for core mathematical primitives when the source model uses θ, α, γ, θ-hat, `F(θ)`, or `f(θ)`.
+- Keep stepwise derivation auditable: each major block must have visible input and output in the final `.wl`, either through notebook-style cells, unsuppressed symbolic objects, `Echo`, or an explicit transcript helper. Do not collapse the derivation into a one-shot batch script.
 - When proving rankings, use `FullSimplify[expr, ass]`, plus `Factor[Together[...]]` so signs are inspectable.
+- At key economic transformations, the agent must actively state the target form before moving on. Examples include inverse-hazard markup, Lerner/unit-margin expressions, threshold boundaries, envelope forms, and welfare rankings. Do not merely keep whatever shape `FullSimplify` returns. Convert the raw equation and the target equation into comparable residuals, record any nonzero multiplier assumption, and add a Boolean equivalence check.
 - Collect final regime results as associations before building comparison tables.
 - Use style-exemplar `.wl` output as the primary user-facing artifact: ordered section comments, visible key outputs, `Association`, `summaryRows`, `summaryGrid`, and concise economic comments. CSV exports are checks, not the main presentation.
 - Do not force `.nb` generation. If `.nb` is requested, generate it only after the `.wl` derivation is correct.
@@ -72,6 +76,7 @@ Use [examples/mfn-rpm-nonash-competition-style.wl](examples/mfn-rpm-nonash-compe
 - Do not allow the script to finish successfully when checks are malformed or false. A script that runs with exit code `0` while `checks` contains non-Boolean values is not verified.
 - Do not make the verification section look like the derivation by assigning a full answer table named `expected...Eq`, `expected...Results`, or similar. That pattern can mask a skipped derivation. Use primitive-consistency checks instead, or use clearly labeled `paperClaim...` formulas only when they come from the paper/proposition being replicated.
 - Do not make representative numeric benchmarks by guessing an `Association[...]` of expected values. A wrong hard-coded benchmark is not a derivation check. Compare symbolic results to an independently computed numeric solution, or check numeric residuals from the original FOCs.
+- Do not skip economically meaningful algebraic rewrites just because Mathematica did not return them automatically. `FullSimplify` is a verifier and simplifier, not a substitute for the agent choosing the relevant economic target form and checking it by residual equivalence.
 
 ## WL Script Quality Gate
 
@@ -86,7 +91,10 @@ Before reporting completion, inspect the generated `.wl` file. At minimum it mus
 - final `summaryRows` and `summaryGrid = Grid[...]`;
 - a `checks` table with all major claims verified;
 - a hard-fail block that requires `VectorQ[Last /@ checks, BooleanQ]` and `And @@ (Last /@ checks)`;
-- key symbolic results left visible in the script by not ending those lines with semicolons, matching the user's style-exemplar code.
+- key symbolic results left visible in the script by not ending those lines with semicolons, matching the user's style-exemplar code;
+- Mathematica Greek symbols for Greek source primitives, with no unexplained English aliases such as `thetaHat`, `Ffun`, or `ffun`;
+- notebook-style input blocks, visible intermediate outputs, or an explicit transcript mechanism such as `show[step, input, output]`.
+- explicit transformation checks for key economic rewrites, where the raw FOC/constraint residual and the target economic-form residual are shown and verified as equivalent under assumptions.
 
 Use this verification block or an equivalent:
 
@@ -102,4 +110,6 @@ If[! allChecksTrue,
 ];
 ```
 
-When a Wolfram runtime is available, run [scripts/validate_wl_derivation.py](scripts/validate_wl_derivation.py) on the generated `.wl` before reporting completion. This validates style tokens, hard-fail logic, and runtime `checks`.
+When a Wolfram runtime is available, run [scripts/validate_wl_derivation.py](scripts/validate_wl_derivation.py) on the generated `.wl` before reporting completion. This validates style tokens, hard-fail logic, and sometimes runtime `checks`.
+
+Do not treat the validator as the authoritative runtime proof. If it prints `RUNTIME_VALIDATION_SKIPPED`, cannot discover Wolfram, or only reports text validation, run the `.wl` yourself with the explicit discovered executable path. On the user's Windows workstation, prefer `D:\mathmatica\mathmatica14.2\wolfram.exe -script <file.wl>` after confirming that executable exists. Completion requires exit code `0`, the script's success marker such as `ALL_CHECKS_TRUE`, and exported checks showing Boolean `True` rows.

@@ -104,10 +104,13 @@ toS[expr_] := ToString[expr, InputForm];
 
 ### Naming
 
+- For mathematical model derivations, Greek variables from the source model must be represented as Mathematica Greek symbols, not English aliases. Use Wolfram-native symbols such as `\[Theta]`, `\[Alpha]`, `\[Gamma]`, `\[Beta]`, `\[Rho]`, and `\[CapitalOmega]`; these display in Mathematica as θ, α, γ, β, ρ, and Ω. Do not replace them with `theta`, `alpha`, `gamma`, `beta`, `rho`, `thetaHat`, or similar English aliases unless a runtime limitation makes this unavoidable. If an alias is unavoidable, define the mapping immediately and explain why.
 - Use descriptive symbolic names: `D11`, `profitR1`, `retailFOCs`, `retailSol`, `HDealer`, `OmegaNM`.
 - Use `pNw` for $p^N(w)$, `wNp` for $w^N(p)$, `pRcomp` for $p^{R,comp}$.
 - Use `*Rules` suffix for replacement lists, e.g. `symWholesaleRules`.
 - Use `*Rows` suffix for CSV rows.
+- Do not use placeholder wrappers such as `Ffun` or `ffun` for distribution primitives when the paper writes `F(θ)` and `f(θ)`. Use direct Mathematica functions such as `F[\[Theta]]` and `f[\[Theta]]`.
+- For step-by-step derivations, preserve visible input/output records. The final `.wl` should use notebook-style `(* ::Input:: *)` blocks, unsuppressed outputs, `Echo`, or a `show[step, input, output]` transcript helper. A script that only exports final CSVs without visible intermediate derivation is not acceptable.
 
 ### Symbolic Operations
 
@@ -184,7 +187,7 @@ If[! allChecksTrue,
 ];
 ```
 
-The task is not complete if any check result is not a Boolean `True`. For paper proposition scripts, also run the `paper-proposition-mathematica/scripts/validate_wl_derivation.py` validator when available.
+The task is not complete if any check result is not a Boolean `True`. For paper proposition scripts, also run the `paper-proposition-mathematica/scripts/validate_wl_derivation.py` validator when available, but treat that validator as a secondary text/style check. If the validator says `RUNTIME_VALIDATION_SKIPPED` or cannot find Wolfram, this does not prove runtime success; still run the `.wl` directly with the discovered or user-provided Wolfram executable, for example `D:\mathmatica\mathmatica14.2\wolfram.exe -script <file.wl>` when that path exists.
 
 ### CSV Export
 
@@ -285,6 +288,8 @@ Context7 examples may be generic. Prefer local execution with the discovered Wol
      - Hessian characteristic polynomial matches expected eigenvalues.
      - closed-form thresholds match simplified expressions.
      - numeric values match benchmark formulas.
+     - raw FOC or constraint equations are algebraically equivalent to the economically interpretable target form, such as inverse-hazard markup, unit margin, threshold boundary, or welfare ranking.
+   - For important economic transformations, do not accept the first shape returned by `FullSimplify` as the final derivation. The agent should choose the target economic form, construct residuals for both the raw Mathematica expression and the target expression, multiply only by factors that are nonzero under `ass`, and verify equivalence with `TrueQ[FullSimplify[... , Assumptions -> ass]]`. Use `Together`, `Cancel`, `Factor`, and `Reduce` as diagnostic tools when the sign, denominator, or feasible region matters.
    - Force every check result through a Boolean claim, for example `TrueQ[FullSimplify[...]]` or an exact equality that evaluates to `True`/`False`.
    - Export the table as CSV.
    - Add a hard-fail guard using `VectorQ[Last /@ checks, BooleanQ]` and `And @@ (Last /@ checks)`; call `Exit[1]` if malformed or false.
@@ -292,7 +297,10 @@ Context7 examples may be generic. Prefer local execution with the discovered Wol
 
 5. **Run Mathematica**
    - Execute the script with `wolfram.exe -script`.
+   - Use the explicit discovered executable path, not a bare command, when `PATH` is unreliable; on the user's Windows workstation, check `D:\mathmatica\mathmatica14.2\wolfram.exe` first if no newer explicit path was provided.
    - Read stdout and confirm exit code.
+   - Confirm stdout contains the script's success marker such as `ALL_CHECKS_TRUE`, and inspect the exported checks CSV.
+   - If `validate_wl_derivation.py` reports `RUNTIME_VALIDATION_SKIPPED`, record it as a validator limitation and rely on the explicit `wolfram.exe -script` run for runtime evidence.
    - Inspect exported CSV files for failures.
    - If `wolfram.exe -script` reports syntax errors, fix and rerun; do not fall back to prose-only derivation.
 
@@ -317,6 +325,7 @@ For a full derivation task, produce:
 Before claiming completion:
 
 - The Mathematica script must run with exit code `0`.
+- Runtime success must come from an explicit Wolfram command-line run of the generated `.wl`; text validators and style validators are not substitutes for this run.
 - The checks CSV must have no failed check, and every check result must be exactly one Boolean value.
 - Scripts with malformed checks must exit nonzero through the hard-fail guard; do not accept a script that exits `0` while `checks` contains lists, associations, numeric tables, or symbolic expressions.
 - Numeric benchmark values must be inspected directly.

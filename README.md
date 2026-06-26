@@ -9,7 +9,19 @@ Codex skills matching the local `mathmatica-user` and `paper-proposition-mathema
 
 The spelling `mathmatica-user` is intentional because it matches the original skill trigger used in the local workflow.
 
-## What Changed In This Version
+## What Changed In v0.2.0
+
+This release adds explicit economic formula transformation checks for Mathematica derivations:
+
+- requires agents to actively state the target economic form at key transformations, such as inverse-hazard markup, unit-margin/Lerner expressions, threshold boundaries, envelope forms, and welfare rankings;
+- requires raw FOC or constraint equations and target economic forms to be compared through residual-equivalence checks;
+- records nonzero multiplier assumptions before multiplying equations;
+- adds reusable Wolfram Language examples for inverse-hazard markup, ranking/sign inspection, and threshold-boundary derivations;
+- clarifies that `FullSimplify` verifies algebraic equivalence but should not replace the agent's economic judgment about the target form.
+
+The previous stable release is tagged as `v0.1.0`.
+
+## What Changed In v0.1.0
 
 The `paper-proposition-mathematica` skill now includes stricter quality gates:
 
