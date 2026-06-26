@@ -26,7 +26,7 @@ The skill emphasizes reproducibility. Generated scripts should contain explicit 
 
 ### `paper-proposition-mathematica`
 
-Use `paper-proposition-mathematica` when the task is to reproduce or audit an economics paper proposition, especially for industrial organization, game theory, MFN/RPM/common-agency style models, threshold propositions, or regime comparisons.
+Use `paper-proposition-mathematica` when the task is to reproduce or audit an economics paper proposition.
 
 It is stricter than the general skill. It requires:
 
