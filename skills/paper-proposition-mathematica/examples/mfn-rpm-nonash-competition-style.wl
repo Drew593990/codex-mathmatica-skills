@@ -42,6 +42,14 @@ p1FromW1[w1_]:=w1;
 p2BR[w1_,w2_]=FullSimplify[p2/. First@Solve[D[pi2[p2,w2,p1FromW1[w1]],p2]==0,p2],Assumptions->$Assumptions]
 
 
+(* ::Input:: *)
+(*Verify: raw FOC residual and best-response target residual are equivalent*)
+p2BRRawFOCResidual=FullSimplify[D[pi2[p2,w2,p1FromW1[w1]],p2],Assumptions->$Assumptions];
+p2BRTargetResidual=FullSimplify[2 p2-(a+\[Alpha] w1+w2),Assumptions->$Assumptions];
+p2BRMultiplierNonzeroCheck=TrueQ[FullSimplify[2!=0,Assumptions->$Assumptions]];
+p2BRTransformCheck=TrueQ[p2BRMultiplierNonzeroCheck&&FullSimplify[p2BRRawFOCResidual+p2BRTargetResidual==0,Assumptions->$Assumptions]]
+
+
 
 
 (* ::Input:: *)
@@ -241,6 +249,7 @@ checks={
    {"MFN+NoRPM association has expected keys",Keys[mfnEq]===expectedKeys},
    {"NoMFN+RPM association has expected keys",Keys[discRPMEq]===expectedKeys},
    {"MFN+RPM association has expected keys",Keys[mfnRPMEq]===expectedKeys},
+   {"p2BR raw FOC is equivalent to best-response target form",p2BRTransformCheck},
    {"NoMFN+NoRPM FOCs hold at selected solution",TrueQ[FullSimplify[And@@(focNoMFNNoRPM/. solNoMFNNoRPM),Assumptions->$Assumptions]]},
    {"MFN+NoRPM FOC holds at selected solution",TrueQ[FullSimplify[focMFNNoRPM/. solMFNNoRPM,Assumptions->$Assumptions]]},
    {"NoMFN+RPM FOCs hold at selected solution",TrueQ[FullSimplify[And@@(focNoMFNRPM/. solNoMFNRPM),Assumptions->$Assumptions]]},

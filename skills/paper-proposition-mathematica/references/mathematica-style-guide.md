@@ -317,7 +317,7 @@ Use Greek letters such as `\[Alpha]`, `\[Beta]`, and `\[Gamma]` whenever they ma
 
 ## Section Order
 
-Use clear separator comments and Chinese economic labels:
+Use clear separator comments and economic labels in the user's preferred language. Chinese labels are shown here as one example:
 
 ```wolfram
 (* ============================== *)

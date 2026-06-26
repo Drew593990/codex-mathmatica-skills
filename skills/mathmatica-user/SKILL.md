@@ -319,7 +319,7 @@ For a full derivation task, produce:
 - `<task-name>_checks.csv`: formula/SOC/equilibrium checks.
 - `<task-name>_simulation.csv`: simulation table when applicable.
 - `<task-name>_plot.png`: plot when applicable.
-- `<task-name>_report.md`: short Chinese Markdown report.
+- `<task-name>_report.md`: short Markdown report in the user's preferred language.
 
 ## Quality Gates
 

@@ -44,7 +44,7 @@ If `wolframscript` does not print output reliably, prefer `wolfram` or `WolframK
 ## Style Rules
 
 - Use separator comments for mature scripts, e.g. `(* ============================== *)`, `(* 0. Assumptions *)`, `(* Demand system *)`, `(* Profit functions *)`.
-- Use Chinese explanatory comments when the output is for the user, especially final row labels such as wholesale price, retail price, quantity, upstream profit, and dealer profit.
+- Use explanatory comments in the user's preferred language, especially final row labels such as wholesale price, retail price, quantity, upstream profit, and dealer profit. If the user communicates in Chinese, prefer Chinese economic labels.
 - Keep paper objects visible in comments, for example `Pi^N_ET`, `Delta_NE`, and self-enforcement constraints.
 - Preserve the compact Mathematica idiom: `FullSimplify[..., Assumptions -> $Assumptions]`, `Solve[...]`, `First[solAll]`, `D[..., var]`, `x /. sol`.
 - Prefer explicit intermediate objects over one large expression. Future checks should be able to inspect each economic step.
@@ -60,7 +60,7 @@ If `wolframscript` does not print output reliably, prefer `wolfram` or `WolframK
 - Do not hide threshold derivations behind a final formula. Show the binding equation, roots, selected root, feasibility restriction, and region-specific equilibrium.
 - Do not create a table such as `expected...Eq = Association[...]` that hand-enters every final equilibrium object unless the user supplied those formulas as an explicit paper/proposition benchmark. For self-contained derivations, checks should verify the solved objects against the model primitives, FOCs, SOCs, substitutions, and feasibility conditions. If comparing to paper formulas, name the block `paperClaim...`, place it after the derived result, and state in comments that it is an external benchmark, not the derivation source.
 - Do not hand-enter numeric benchmark associations such as `numericBenchmark == Association["p1" -> ...]` unless those numbers come from a user-supplied paper table and are labeled as `paperNumericClaim...`. For self-contained tests, derive numeric checks from independent numeric solving (`NSolve`/`FindRoot`) or verify that numeric substitutions satisfy the primitive FOCs, quantities, profits, and feasibility restrictions.
-- Be careful with Chinese strings in direct `wolfram.exe -script` on Windows. If direct script execution fails on encoding while stepwise `-noprompt` succeeds, keep the final `.wl` ASCII-only or encode Chinese labels with Wolfram escapes / `FromCharacterCode`.
+- If the user needs Chinese labels, be careful with Chinese strings in direct `wolfram.exe -script` on Windows. If direct script execution fails on encoding while stepwise `-noprompt` succeeds, keep the final `.wl` ASCII-only or encode Chinese labels with Wolfram escapes / `FromCharacterCode`.
 - Build a hard-fail check block into every generated `.wl`: export or print the checks, verify each check result is a Boolean, and call `Exit[1]` when any check is not exactly `True`.
 
 ## Bundled Example
