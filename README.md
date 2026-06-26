@@ -61,12 +61,26 @@ The skill also contains a specific pattern for economically meaningful formula t
 
 Copy the desired skill folder into your Codex skills directory:
 
+PowerShell:
+
 ```powershell
 Copy-Item -Recurse .\skills\mathmatica-user $env:CODEX_HOME\skills\
 Copy-Item -Recurse .\skills\paper-proposition-mathematica $env:CODEX_HOME\skills\
 ```
 
+Bash / Zsh:
+
+```bash
+cp -r ./skills/mathmatica-user "$CODEX_HOME/skills/"
+cp -r ./skills/paper-proposition-mathematica "$CODEX_HOME/skills/"
+```
+
 If `CODEX_HOME` is not set, copy the folders into your local Codex skills directory manually.
+
+## Prerequisites
+
+- A local Wolfram/Mathematica installation for running generated `.wl` scripts.
+- Python 3.9 or newer for `scripts/validate_wl_derivation.py`. If Python is unavailable, skip the validator and use direct Wolfram runtime checks.
 
 ## Wolfram Runtime
 

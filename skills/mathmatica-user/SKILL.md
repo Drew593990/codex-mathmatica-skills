@@ -244,7 +244,7 @@ Avoid complex formulas inside Markdown tables.
 
 ## Context7 Documentation Notes
 
-When current Wolfram Language syntax is uncertain, use context7 with library ID `/websites/reference_wolfram_language`.
+When current Wolfram Language syntax is uncertain, use context7 with library ID `/websites/reference_wolfram_language` if available, or consult the official Wolfram Language reference at https://reference.wolfram.com/language/.
 
 Useful documentation topics:
 
@@ -265,8 +265,8 @@ Context7 examples may be generic. Prefer local execution with the discovered Wol
    - Preserve the user's notation where possible.
 
 2. **Create a task folder**
-   - If generating multiple artifacts, create or use a task-specific subfolder under the requested D-drive path.
-   - Do not place new scripts, outputs, downloads, or generated files on `C:` unless the user explicitly approves.
+   - If generating multiple artifacts, create or use a task-specific subfolder under the user's requested output path.
+   - Place generated files in the user-designated output location. Do not write to system drives or unrelated project folders without explicit approval.
 
 3. **Write a Wolfram Language script**
    - Start from the full model equations, not from previously derived Python formulas.
@@ -304,7 +304,8 @@ Context7 examples may be generic. Prefer local execution with the discovered Wol
    - Inspect exported CSV files for failures.
    - If `wolfram.exe -script` reports syntax errors, fix and rerun; do not fall back to prose-only derivation.
 
-6. **Report in Chinese by default**
+6. **Report in the user's preferred language**
+   - Match the language the user communicates in, unless they request another language.
    - Summarize the model, derivation path, equilibrium formulas, numeric outputs, and any caveats.
    - Give clickable local file links when reporting artifacts.
 

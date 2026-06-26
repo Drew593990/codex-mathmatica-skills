@@ -30,6 +30,17 @@ Before writing code, read [mathematica-style-guide.md](references/mathematica-st
 & $wolframExe -script '<absolute-path-to-script.wl>'
 ```
 
+## Wolfram Runtime Discovery
+
+Discover the local Wolfram runtime instead of assuming a fixed path. Prefer, in order:
+
+- an explicit path provided by the user;
+- environment variables such as `WOLFRAM_KERNEL`, `WOLFRAM_EXE`, or `WOLFRAMSCRIPT`;
+- commands on `PATH`, such as `wolfram`, `WolframKernel`, or `wolframscript`;
+- common platform-specific install locations only after checking they exist.
+
+If `wolframscript` does not print output reliably, prefer `wolfram` or `WolframKernel` with `-script` or `-noprompt`.
+
 ## Style Rules
 
 - Use separator comments for mature scripts, e.g. `(* ============================== *)`, `(* 0. Assumptions *)`, `(* Demand system *)`, `(* Profit functions *)`.
@@ -110,6 +121,6 @@ If[! allChecksTrue,
 ];
 ```
 
-When a Wolfram runtime is available, run [scripts/validate_wl_derivation.py](scripts/validate_wl_derivation.py) on the generated `.wl` before reporting completion. This validates style tokens, hard-fail logic, and sometimes runtime `checks`.
+When Python >= 3.9 and a Wolfram runtime are both available, run [scripts/validate_wl_derivation.py](scripts/validate_wl_derivation.py) on the generated `.wl` before reporting completion. This validates style tokens, hard-fail logic, and sometimes runtime `checks`. If Python is unavailable, skip the validator and rely on direct Wolfram runtime verification.
 
 Do not treat the validator as the authoritative runtime proof. If it prints `RUNTIME_VALIDATION_SKIPPED`, cannot discover Wolfram, or only reports text validation, run the `.wl` yourself with the explicit discovered or user-provided executable path, for example `& $wolframExe -script '<file.wl>'`. Completion requires exit code `0`, the script's success marker such as `ALL_CHECKS_TRUE`, and exported checks showing Boolean `True` rows.
