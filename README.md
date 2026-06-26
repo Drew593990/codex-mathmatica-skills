@@ -1,40 +1,57 @@
 # Codex Mathmatica Skills
 
-Codex skills matching the local `mathmatica-user` and `paper-proposition-mathematica` skill names. They are used for Wolfram/Mathematica-based mathematical modeling and economics paper proposition replication.
+Codex skills for Wolfram/Mathematica-based mathematical modeling, symbolic derivation, economics paper proposition replication, and auditable equilibrium verification.
+
+The repository contains two complementary skills:
+
+- `mathmatica-user`: a general Wolfram Language modeling skill for symbolic mathematics, optimization, equilibrium solving, formula verification, and numeric simulation.
+- `paper-proposition-mathematica`: a stricter economics-paper workflow skill for reproducing, checking, extending, and documenting theoretical propositions in a human-readable `.wl` derivation style.
+
+The spelling `mathmatica-user` is intentional because it matches the original skill trigger used by this workflow.
 
 ## Skills
 
-- `mathmatica-user`: general Wolfram Language modeling, symbolic derivation, equilibrium solving, formula verification, and numeric simulation.
-- `paper-proposition-mathematica`: economics paper proposition replication style, including step-by-step derivation, style-exemplar `.wl` output, threshold and regime solving, result associations, summary grids, and strict verification checks.
+### `mathmatica-user`
 
-The spelling `mathmatica-user` is intentional because it matches the original skill trigger used in the local workflow.
+Use `mathmatica-user` when a task needs Mathematica/Wolfram Language as the primary symbolic engine. It is designed for:
 
-## What Changed In v0.2.0
+- translating mathematical and economic model primitives into Wolfram Language;
+- deriving first-order conditions, second-order conditions, Hessians, feasible regions, equilibrium candidates, and comparative statics;
+- verifying algebraic equivalence between alternative formula forms;
+- running exact symbolic checks before numeric substitution;
+- producing reproducible `.wl` scripts, CSV outputs, plots, and short reports when needed;
+- discovering and using a local Wolfram runtime rather than assuming a fixed executable path.
 
-This release adds explicit economic formula transformation checks for Mathematica derivations:
+The skill emphasizes reproducibility. Generated scripts should contain explicit assumptions, symbolic objects, strict Boolean checks, and hard-fail guards so that false or malformed checks do not silently pass.
 
-- requires agents to actively state the target economic form at key transformations, such as inverse-hazard markup, unit-margin/Lerner expressions, threshold boundaries, envelope forms, and welfare rankings;
-- requires raw FOC or constraint equations and target economic forms to be compared through residual-equivalence checks;
-- records nonzero multiplier assumptions before multiplying equations;
-- adds reusable Wolfram Language examples for inverse-hazard markup, ranking/sign inspection, and threshold-boundary derivations;
-- clarifies that `FullSimplify` verifies algebraic equivalence but should not replace the agent's economic judgment about the target form.
+### `paper-proposition-mathematica`
 
-The previous stable release is tagged as `v0.1.0`.
+Use `paper-proposition-mathematica` when the task is to reproduce or audit an economics paper proposition, especially for industrial organization, game theory, MFN/RPM/common-agency style models, threshold propositions, or regime comparisons.
 
-## What Changed In v0.1.0
+It is stricter than the general skill. It requires:
 
-The `paper-proposition-mathematica` skill now includes stricter quality gates:
+- starting from the paper's primitive definitions rather than from final formulas;
+- preserving source notation, including Wolfram-native Greek symbols such as `\[Theta]`, `\[Alpha]`, `\[Gamma]`, and direct distribution primitives such as `F[\[Theta]]` and `f[\[Theta]]`;
+- running Mathematica step by step while deriving, then assembling a readable `.wl` script only after the derivation is clear;
+- leaving key intermediate objects visible, including FOCs, SOC/Hessian checks, solution lists, selected rules, threshold equations, feasible regions, regime associations, and summary grids;
+- avoiding unexplained shortcut symbols after model setup;
+- checking every major result with strict Boolean verification rows;
+- comparing symbolic results to independent numeric solving or primitive residual checks when numeric benchmarks are needed.
 
-- derives from model primitives before final formulas;
-- keeps intermediate FOCs, SOC/Hessian checks, solution lists, selected rules, regime associations, and summary grids visible;
-- forbids hand-entered `expected...Eq = Association[...]` answer tables unless clearly labeled as external paper claims;
-- forbids hand-entered numeric benchmark answer tables;
-- requires every `checks` result to be a strict Boolean `True` or `False`;
-- hard-fails generated `.wl` scripts with `Exit[1]` when checks are false or malformed;
-- includes `scripts/validate_wl_derivation.py` for text and runtime validation;
-- includes a bundled default style example under `examples/`.
+The skill also contains a specific pattern for economically meaningful formula transformations. At important steps, the agent must choose the target economic form, such as inverse-hazard markup, Lerner/unit-margin expressions, threshold boundaries, envelope conditions, or welfare rankings, then verify equivalence by constructing raw residuals and target residuals under explicit nonzero multiplier assumptions. `FullSimplify` is used as a verifier, not as a substitute for economic interpretation.
 
-## Included Example And Validator
+## Typical Workflow
+
+1. Identify primitives, players, timing, decision variables, assumptions, constraints, and equilibrium concept.
+2. Write a stepwise Mathematica derivation from the primitive model.
+3. Keep visible intermediate outputs for the economically important steps.
+4. Solve FOCs and check SOC/Hessian or feasible-region conditions.
+5. Transform raw formulas into interpretable economic forms and verify equivalence.
+6. Build a strict `checks` table where each result is exactly `True` or `False`.
+7. Run the generated `.wl` through a local Wolfram executable and inspect exported outputs.
+8. Use reports, CSVs, plots, or summary grids as presentation artifacts after verification.
+
+## Included Files
 
 - Style example: [`skills/paper-proposition-mathematica/examples/mfn-rpm-nonash-competition-style.wl`](skills/paper-proposition-mathematica/examples/mfn-rpm-nonash-competition-style.wl)
 - Validator: [`skills/paper-proposition-mathematica/scripts/validate_wl_derivation.py`](skills/paper-proposition-mathematica/scripts/validate_wl_derivation.py)
