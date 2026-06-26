@@ -139,10 +139,10 @@ If[! allChecksTrue,
 
 If a runtime is available, validate the final file with `scripts/validate_wl_derivation.py`. This catches scripts that merely contain a `checks` variable but never prove that all checks are Boolean `True`. The validator is not the final runtime authority: if it reports `RUNTIME_VALIDATION_SKIPPED`, cannot find Wolfram, or only performs text validation, run the `.wl` directly with the explicit Wolfram executable path and use that command's exit code, stdout success marker, and exported checks CSV as the runtime evidence.
 
-On the user's Windows workstation, prefer this explicit runtime check after confirming the executable exists:
+Prefer this explicit runtime check after discovering or receiving the Wolfram executable path:
 
 ```powershell
-& 'D:\mathmatica\mathmatica14.2\wolfram.exe' -script '<absolute-path-to-script.wl>'
+& $wolframExe -script '<absolute-path-to-script.wl>'
 ```
 
 The task is not complete until that command exits `0` and the generated checks all evaluate to Boolean `True`.

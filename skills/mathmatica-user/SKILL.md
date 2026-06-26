@@ -187,7 +187,7 @@ If[! allChecksTrue,
 ];
 ```
 
-The task is not complete if any check result is not a Boolean `True`. For paper proposition scripts, also run the `paper-proposition-mathematica/scripts/validate_wl_derivation.py` validator when available, but treat that validator as a secondary text/style check. If the validator says `RUNTIME_VALIDATION_SKIPPED` or cannot find Wolfram, this does not prove runtime success; still run the `.wl` directly with the discovered or user-provided Wolfram executable, for example `D:\mathmatica\mathmatica14.2\wolfram.exe -script <file.wl>` when that path exists.
+The task is not complete if any check result is not a Boolean `True`. For paper proposition scripts, also run the `paper-proposition-mathematica/scripts/validate_wl_derivation.py` validator when available, but treat that validator as a secondary text/style check. If the validator says `RUNTIME_VALIDATION_SKIPPED` or cannot find Wolfram, this does not prove runtime success; still run the `.wl` directly with the discovered or user-provided Wolfram executable, for example `& $wolframExe -script '<file.wl>'`.
 
 ### CSV Export
 
@@ -297,7 +297,7 @@ Context7 examples may be generic. Prefer local execution with the discovered Wol
 
 5. **Run Mathematica**
    - Execute the script with `wolfram.exe -script`.
-   - Use the explicit discovered executable path, not a bare command, when `PATH` is unreliable; on the user's Windows workstation, check `D:\mathmatica\mathmatica14.2\wolfram.exe` first if no newer explicit path was provided.
+   - Use the explicit discovered executable path, not a bare command, when `PATH` is unreliable. Prefer a user-provided path, environment variable, or detected platform install location; do not hardcode a machine-specific path in reusable scripts.
    - Read stdout and confirm exit code.
    - Confirm stdout contains the script's success marker such as `ALL_CHECKS_TRUE`, and inspect the exported checks CSV.
    - If `validate_wl_derivation.py` reports `RUNTIME_VALIDATION_SKIPPED`, record it as a validator limitation and rely on the explicit `wolfram.exe -script` run for runtime evidence.
