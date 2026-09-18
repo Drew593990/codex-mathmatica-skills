@@ -12,7 +12,7 @@ For the user's model derivation tasks:
 4. Keep the output of each economic step visible in the `.wl` style: FOC, solution list, selected solution, threshold equation, threshold roots, feasible region, `Association`, and final `Grid`.
 5. Export CSV/check tables only as verification artifacts. Generate `.nb` only when explicitly requested.
 
-If no user-provided style exemplar is available, use the bundled default example `examples/mfn-rpm-nonash-competition-style.wl`. It is a runnable `.wl` script that preserves notebook-code style without requiring a `.nb` file.
+If no user-provided style exemplar is available, use the bundled default example `examples/mfn-rpm-nonash-competition-style.wl`. It is a runnable conditional-stationary-point style example, not a proof of full equilibrium over its declared parameter domain. Preserve the format without importing its economic assumptions.
 
 When stepwise input is piped through `wolfram.exe -noprompt`, set the output folder explicitly because `$InputFileName` is empty. On Windows, direct `wolfram.exe -script` can be unreliable for raw Chinese strings in UTF-8 `.wl` files; if this happens, keep the `.wl` ASCII-only or encode Chinese labels with Wolfram escapes / `FromCharacterCode`.
 
@@ -26,7 +26,7 @@ The `.wl` is the main deliverable unless the user explicitly asks for `.nb`. Do 
 - define functions with patterns, e.g. `piUDisc[w1_, w2_] := ...`;
 - derive FOCs explicitly, e.g. `focDisc = {...}`;
 - solve full systems, e.g. `solDiscW = FullSimplify[Solve[focDisc, {w1, w2}], Assumptions -> $Assumptions]`;
-- select rules explicitly, e.g. `discRules = First @ solDiscW`;
+- retain all candidates and conditions, then select rules with a mathematical/economic rationale; `First` is allowed but not required;
 - collect regime results into `discEq`, `mfnEq`, `discRPMEq`, `mfnRPMEq`, or analogous `Association` objects;
 - build `summaryRows` and `summaryGrid = Grid[...]`;
 - put `summaryGrid` on its own final line without a semicolon;
@@ -34,7 +34,7 @@ The `.wl` is the main deliverable unless the user explicitly asks for `.nb`. Do 
 
 The bundled default example uses this same pattern. In particular, copy its high-level structure rather than its economic content: assumptions, primitives, one block per regime, FOC solving, `Association` result objects, and final `summaryGrid`.
 
-Use this style check before completion:
+The following optional style heuristic is for full multi-regime deliverables. Tokens do not establish mathematical correctness, and a focused derivation need not contain every one:
 
 ```wolfram
 wlText = Import[wlPath, "Text"];
@@ -43,141 +43,74 @@ wlStyleChecks = {
   StringContainsQ[wlText, "$Assumptions"],
   StringContainsQ[wlText, "FullSimplify"],
   StringContainsQ[wlText, "Solve"],
-  StringContainsQ[wlText, "First @"] || StringContainsQ[wlText, "First["],
   StringContainsQ[wlText, "Association"] || StringContainsQ[wlText, "<|"],
   StringContainsQ[wlText, "summaryRows"],
   StringContainsQ[wlText, "summaryGrid"],
   StringContainsQ[wlText, "Grid["],
   StringContainsQ[wlText, "checks"]
 };
-If[! And @@ wlStyleChecks, Print["WL_STYLE_VALIDATION_FAILED"]; Exit[1]];
+If[! And @@ wlStyleChecks, Print["WL_STYLE_ADVISORY"]];
 ```
 
-## Boolean Checks and Hard Fail
+## Technical Checks, Mathematical Evidence and Completion
 
-Every `checks` row must have a single Boolean result. Convert lists and benchmark objects into strict Boolean claims before adding them to `checks`. Wrap symbolic checks as `TrueQ[FullSimplify[claim, Assumptions -> ass]]`; never put raw `And @@ focChecks` or a possible `ConditionalExpression` directly into `checks`.
+Keep three distinct records: executable technical assertions; raw mathematical claims/results with assumptions, quantifiers and proof status; acceptance of the user's requested scope. Every technical `checks` row must be `{nonblank string, True|False}` and the list must be nonempty. Preserve raw symbolic expressions before applying `TrueQ`; False from `TrueQ` is not automatically a counterexample or proof of negation. A timeout or an unevaluated `Reduce` remains unresolved.
 
-For self-contained derivations, do not hand-enter a complete final answer table in the check block, such as `expectedCournotEq = Association[...]`, and then compare the derived result to it. That is visually too close to skipping the derivation. Prefer checks that refer back to primitives already defined in the model:
+Derive from primitives before comparing paper formulas or expected values. Benchmarks need a traceable source and independent purpose; their variable names do not determine validity. For example, compare the derived quantity to `Total[eq /@ {"q1", "q2", "q3"}]`, price to `P[eq["q1"], eq["q2"], eq["q3"]]`, and profit to `pi1[eq["q1"], eq["q2"], eq["q3"]]`, using the original definitions. Such consistency checks do not by themselves establish optimality.
+
+Construct residuals before substitution, because an equation can evaluate to True/False and lose its two sides:
 
 ```wolfram
-quantityConsistencyClaims = {
-  eq["Q"] == Total[eq /@ {"q1", "q2", "q3"}]
-};
-
-priceConsistencyClaims = {
-  eq["P"] == P[eq["q1"], eq["q2"], eq["q3"]]
-};
-
-profitConsistencyClaims = {
-  eq["pi1"] == pi1[eq["q1"], eq["q2"], eq["q3"]]
-};
+focResiduals = {D[(x - 1)^2, x]};
+focSystem = Thread[focResiduals == ConstantArray[0, Length[focResiduals]]];
+solAll = Solve[focSystem, {x}, Reals];
+(* This example is a linear FOC with one real root; no optimality claim. *)
+If[Length[solAll] != 1, Print["UNRESOLVED_SELECTION"]; Exit[1]];
+sol = First[solAll];
+rawFOCResidual = FullSimplify[focResiduals /. sol];
+checks = {{"Candidate satisfies primitive FOC", TrueQ[rawFOCResidual == {0}]}};
 ```
 
-When the paper itself states target formulas, compare against them only after the model has already been solved, label the block as `paperClaim...`, and comment that the formulas are an external benchmark from the proposition.
+If previously stored equations have already become Boolean, reconstruct residuals from the primitive objective. Do not apply `Subtract` to Boolean values. For requested numeric work use `N[focResiduals /. symbolicSol /. numericRules, precision]` with a justified tolerance. Compare symbolic and numeric solutions on the same branch and domain, retaining `NSolve`'s full root set. `FindRoot` establishes only the root found, not uniqueness or completeness. Numerical residuals do not replace an exact proof.
 
-For numeric checks, do not write `numericBenchmark == Association["p1" -> ..., ...]` from hand-entered expected values. Use one of these patterns instead:
+Use the following technical guard (or equivalent) before reporting registered checks as passing:
 
 ```wolfram
-numericRules = {a -> 10, c1 -> 2, c2 -> 4, gamma -> 1/2};
-numericSol = First @ NSolve[focSystem /. numericRules, {p1, p2}, Reals];
-
-numericSolutionCheck = TrueQ[
-  Chop[Norm[({p1, p2} /. symbolicSol /. numericRules) - ({p1, p2} /. numericSol)]] == 0
+If[!ListQ[checks] || Length[checks] == 0 ||
+   !AllTrue[checks, MatchQ[#, {_String, _}] &&
+     StringLength[StringTrim[First[#]]] > 0 &],
+   Print["CHECKS_EMPTY_OR_MALFORMED"]; Exit[1]
 ];
-```
-
-Or verify numeric residuals directly from the primitives:
-
-```wolfram
-numericFOCResidualCheck = TrueQ[
-  Chop[Norm[Subtract @@@ (focSystem /. symbolicSol /. numericRules)]] == 0
-];
-```
-
-Good:
-
-```wolfram
-focChecks = FullSimplify[focSystem /. solRules, Assumptions -> $Assumptions];
-numericRules = {a -> 10, c1 -> 2, c2 -> 4, gamma -> 1/2};
-numericSol = First @ NSolve[focSystem /. numericRules, {p1, p2}, Reals];
-numericResidual = Chop[Norm[Subtract @@@ (focSystem /. solRules /. numericRules)]];
-
-checks = {
-  {"FOC system holds at selected solution",
-   TrueQ[FullSimplify[And @@ focChecks, Assumptions -> $Assumptions]]},
-  {"Numeric FOC residual is zero",
-   TrueQ[numericResidual == 0]},
-  {"Symbolic and numeric prices agree",
-   TrueQ[Chop[Norm[({p1, p2} /. solRules /. numericRules) - ({p1, p2} /. numericSol)]] == 0]}
-};
-```
-
-Bad:
-
-```wolfram
-checks = {
-  {"FOC system holds", focChecks},              (* list, not Boolean *)
-  {"FOC system holds after conjunction", And @@ focChecks}, (* can become ConditionalExpression *)
-  {"Numeric benchmark", numericBenchmark},      (* Association, not Boolean *)
-  {"Numeric benchmark matches", numericBenchmark == Association["p1" -> 1]} (* hand-entered answer table *)
-};
-```
-
-Every generated `.wl` must fail the process when checks are false or malformed:
-
-```wolfram
 checkResults = Last /@ checks;
-checksAreBoolean = VectorQ[checkResults, BooleanQ];
-allChecksTrue = TrueQ[checksAreBoolean && And @@ checkResults];
-
-If[! allChecksTrue,
-   Print["CHECKS_FAILED_OR_MALFORMED"];
-   Print[checks];
-   Exit[1]
+If[!VectorQ[checkResults, BooleanQ] || !TrueQ[And @@ checkResults],
+   Print["CHECKS_FAILED_OR_MALFORMED"]; Print[InputForm[checks]]; Exit[1]
 ];
 ```
 
-If a runtime is available, validate the final file with `scripts/validate_wl_derivation.py`. This catches scripts that merely contain a `checks` variable but never prove that all checks are Boolean `True`. The validator is not the final runtime authority: if it reports `RUNTIME_VALIDATION_SKIPPED`, cannot find Wolfram, or only performs text validation, run the `.wl` directly with the explicit Wolfram executable path and use that command's exit code, stdout success marker, and exported checks CSV as the runtime evidence.
+Run the completed script once through `scripts/validate_wl_derivation.py` with the discovered executable, explicit task-specific work directory and appropriate timeout. The command in the parent SKILL shows the invocation with user-selected paths. The validator distinguishes advisory style, explicit static-only inspection, absent runtime, execution failure, timeout, missing/empty/malformed checks, non-Boolean/false results and missing completion. It requires its own current-run marker, not a marker printed by the target. Do not end a normally completing target with `Exit[0]`, which prevents the wrapper from completing. A passing run verifies only its registered checks, not the full model. Manual direct runs need equivalent completion evidence; do not run an expensive script twice merely to count checks.
 
-Prefer this explicit runtime check after discovering or receiving the Wolfram executable path:
-
-```powershell
-& $wolframExe -script '<absolute-path-to-script.wl>'
-```
-
-The task is not complete until that command exits `0` and the generated checks all evaluate to Boolean `True`.
+A valid refutation can complete an audit. A conditional solution can complete a conditional-solution task with its domain and limits. An unresolved claim required for the requested positive proof remains incomplete, even when technical checks pass. Keep scope/status evidence separate from the process result.
 
 ## Economic Formula Transformation Checks
 
 Mathematica is allowed to simplify expressions, but the agent must choose the economically meaningful target form at important steps. `FullSimplify` should verify the transformation; it should not replace the agent's judgment about which form matters for the paper.
 
-Use this pattern whenever a raw derivative, constraint, or ranking needs to be rewritten into an interpretable economic object such as inverse hazard, markup, Lerner index, threshold boundary, envelope condition, or welfare comparison:
+At each important rewrite distinguish an identity, equivalence of solution sets, and a one-way implication. Build residuals directly from the primitive expressions, before equations evaluate:
 
 ```wolfram
-(* Raw equation produced directly from primitives. *)
-rawEq = D[objective, x] == 0;
+rawResidual = D[objective, x];
+targetResidual = lhsTarget - rhsTarget;
+rawEq = rawResidual == 0;
+targetEq = targetResidual == 0;
 
-(* Target form chosen by economic interpretation, not copied as a final answer. *)
-targetEq = lhsTarget == rhsTarget;
-
-(* Pick multiplier only when assumptions imply it is nonzero. *)
-multiplierNonzeroCheck =
-  TrueQ[FullSimplify[multiplier != 0, Assumptions -> ass]];
-
-rawResidual =
-  FullSimplify[multiplier*(Subtract @@ List @@ rawEq), Assumptions -> ass];
-
-targetResidual =
-  FullSimplify[multiplier*(Subtract @@ List @@ targetEq), Assumptions -> ass];
-
-transformCheck =
-  TrueQ[
-    multiplierNonzeroCheck &&
-      FullSimplify[rawResidual - targetResidual == 0, Assumptions -> ass]
-  ];
+(* One valid method: a proved nonzero proportional factor, on originalDomain. *)
+rawFactorEvidence = FullSimplify[factor != 0, Assumptions -> originalDomain];
+rawIdentityEvidence = FullSimplify[
+  rawResidual == factor targetResidual, Assumptions -> originalDomain];
+transformCheck = TrueQ[rawFactorEvidence] && TrueQ[rawIdentityEvidence];
 ```
 
-If the two residuals are negatives of each other, check `rawResidual + targetResidual == 0` instead. Keep `rawResidual`, `targetResidual`, and `transformCheck` visible in the `.wl` script.
+Here `factor` is derived and justified, not guessed. Preserve `originalDomain`, including denominators and real/complex choices. Check nonempty feasibility or explicitly retain unknown nonemptiness; otherwise a vacuous implication can masquerade as a result. An alternative is `Resolve`/`Reduce` for logical equivalence on a specified domain. Do not require literally equal residuals: `2 x == 0` and `x == 0` are equivalent. Conversely, cancelling `a` in `a x == 0` loses the `a == 0` branch unless a nonzero condition is proved. Squaring and inequalities require their own branch/sign conditions. If only one implication is proved, state its direction. Large problems can use justified factorization and domain splits instead of one high-dimensional reduction.
 
 ### Example 1: Price FOC to inverse-hazard markup
 
@@ -200,8 +133,8 @@ Then the agent chooses the target economic form:
 focPriceTarget =
   (p - callCost[q])/q == (1 - F[p/q])/f[p/q];
 
-priceMultiplierNonzeroCheck =
-  TrueQ[FullSimplify[q*f[p/q] != 0, Assumptions -> ass]];
+rawPriceMultiplierEvidence = FullSimplify[q*f[p/q] != 0, Assumptions -> ass];
+priceMultiplierNonzeroCheck = TrueQ[rawPriceMultiplierEvidence];
 
 focPriceRawResidual =
   FullSimplify[
@@ -239,13 +172,9 @@ rankingDifference =
 rankingFactors =
   Factor[Together[rankingDifference]];
 
-rankingCheck =
-  TrueQ[
-    FullSimplify[
-      rankingDifference >= 0,
-      Assumptions -> ass
-    ]
-  ];
+rawRankingEvidence = FullSimplify[
+  rankingDifference >= 0, Assumptions -> ass];
+rankingCheck = TrueQ[rawRankingEvidence];
 ```
 
 If `rankingCheck` is not `True`, use `Reduce` to find the exact parameter region:
@@ -258,45 +187,29 @@ rankingRegion =
   ];
 ```
 
-Report the unconditional ranking only when `rankingCheck` is `True`; otherwise report the region returned by `Reduce`.
+Preserve the raw simplification before `TrueQ`. Report a ranking only on the proved original domain; if `Reduce` returns unresolved or conditional output, retain that output and status rather than treating it as a solved region. Do not call a ranking unconditional when it relies on parameter assumptions.
 
 ### Example 3: Threshold boundary from a binding constraint
 
-For a threshold, show the binding equation, all roots, selected root, and feasibility condition before naming the threshold:
+For a threshold, retain the binding equation, all roots and their validity conditions. A complete feasible relation can be preferable to premature root selection:
 
 ```wolfram
-constraintBind =
-  participationProfit[p] == \[CapitalOmega];
-
-constraintRootsAll =
-  FullSimplify[Solve[constraintBind, p, Reals],
-    Assumptions -> ass];
-
-constraintRootSelected =
-  FullSimplify[p /. constraintRootsAll[[1]], Assumptions -> ass];
-
-thresholdCandidate =
-  FullSimplify[
-    \[CapitalOmega] /. First @ Solve[
-      constraintRootSelected == targetPrice,
-      \[CapitalOmega],
-      Reals
-    ],
-    Assumptions -> ass
-  ];
-
-thresholdFeasibility =
-  FullSimplify[
-    Reduce[{constraintBind, feasibilityConstraints, ass},
-      {p, \[CapitalOmega]},
-      Reals],
-    Assumptions -> ass
-  ];
+constraintResidual = participationProfit[p] - \[CapitalOmega];
+constraintBind = constraintResidual == 0;
+constraintRootsAll = Solve[constraintBind, p, Reals];
+thresholdFeasibility = Reduce[
+  constraintBind && feasibilityConstraints && ass,
+  {p, \[CapitalOmega]}, Reals];
+thresholdRelation = Reduce[
+  constraintBind && p == targetPrice && feasibilityConstraints && ass,
+  {p, \[CapitalOmega]}, Reals];
 ```
 
-Only after these objects are visible should the script use a short name such as `OmegaNoRPMM` or `DeltaET`.
+Here feasibility and target price must come from the original model. Inspect whether relations were solved; keep unresolved branches. Select a scalar threshold only after justifying which branch applies, recording any degeneracy and excluded cases. A single generic `Solve` rule is not proof of uniqueness at exceptional parameters. No automatic `[[1]]`/`First` selection is required.
 
 ## Basic Cell Skeleton
+
+The following parameter domain is illustrative only; replace it with the original model domain. Do not import these restrictions into a different model.
 
 ```wolfram
 ClearAll["Global`*"];
@@ -317,7 +230,7 @@ Use Greek letters such as `\[Alpha]`, `\[Beta]`, and `\[Gamma]` whenever they ma
 
 ## Section Order
 
-Use clear separator comments and economic labels in the user's preferred language. Chinese labels are shown here as one example:
+Use clear separator comments and labels in the user's preferred language; this example uses Chinese:
 
 ```wolfram
 (* ============================== *)
@@ -402,6 +315,7 @@ p2BRNoMFN[w1_, w2_]
 piUNoMFNNoRPM[w1_, w2_]
 focNoMFNNoRPM
 solNoMFNNoRPMAll
+(* Only after validating singleton structure, parameter conditions and selection rationale. *)
 solNoMFNNoRPM = First @ solNoMFNNoRPMAll
 ```
 
@@ -518,35 +432,21 @@ thresholdGrid
 
 ## Full Threshold Derivation Requirement
 
-Do not jump directly to a threshold formula. Show the whole chain:
+Do not jump directly to a threshold formula. Show the binding condition, candidate family and all relevant feasible boundaries:
 
 ```wolfram
 constraintBindNoRPM = piDealerNoRPM[p] == \[CapitalOmega];
-solConstraintBindNoRPMAll = FullSimplify[
-   Solve[constraintBindNoRPM, p, Reals],
-   Assumptions -> $Assumptions
-];
-
-pNoRPMCol = FullSimplify[
-   p /. solConstraintBindNoRPMAll[[1]],
-   Assumptions -> $Assumptions
-];
-
-wNoRPMCol = FullSimplify[
-   wNoRPMFromP[pNoRPMCol],
-   Assumptions -> $Assumptions
-];
-
-OmegaNoRPMW0 = FullSimplify[
-   \[CapitalOmega] /. First @ Solve[wNoRPMCol == 0, \[CapitalOmega], Reals],
-   Assumptions -> $Assumptions
-];
-
-regionNoRPMCanInduceM = FullSimplify[
-   0 <= \[CapitalOmega] <= OmegaNoRPMM,
-   Assumptions -> $Assumptions
-];
+solConstraintBindNoRPMAll = Solve[constraintBindNoRPM, p, Reals];
+regionConstraintNoRPM = Reduce[
+  constraintBindNoRPM && feasibilityConstraints && $Assumptions,
+  {p, \[CapitalOmega]}, Reals];
+regionNoRPMW0 = Reduce[
+  constraintBindNoRPM && wNoRPMFromP[p] == 0 &&
+    feasibilityConstraints && $Assumptions,
+  {p, \[CapitalOmega]}, Reals];
 ```
+
+After resolving branches, store the selected `pNoRPMCol`, its domain, `wNoRPMCol = wNoRPMFromP[pNoRPMCol]`, and the justified scalar threshold `OmegaNoRPMW0`. If selection or a boundary remains unresolved, keep the complete relation and label it accordingly. Do not invent a scalar answer to populate a table. The region table below illustrates a model-specific arrangement; derive its ordering and solution validity before using it.
 
 For each region, solve or state the equilibrium object inside that region, not only the boundary:
 
@@ -577,22 +477,22 @@ NoRPMRegionII = Association[
 
 ## Verification Rows
 
-Every serious replication should include checks, but checks are not the main user-facing output:
+Preserve raw evidence before building the strict Boolean technical table. These are illustrative claim forms; only include the relevant justified claims for the model and task:
 
 ```wolfram
+rawFormulaEvidence = FullSimplify[
+  p2BRNoMFN[w1, w2] == claimedP2BR, Assumptions -> $Assumptions];
+rawSOCEvidence = FullSimplify[
+  And @@ Thread[Eigenvalues[hessianDealer] < 0], Assumptions -> $Assumptions];
+rawRankingEvidence = FullSimplify[
+  OmegaNoRPMM <= OmegaNoRPMW0 <= OmegaRPMM, Assumptions -> $Assumptions];
 checks = {
-   {"FOC 解与声明的反应函数一致",
-    FullSimplify[p2BRNoMFN[w1, w2] == claimedP2BR, Assumptions -> $Assumptions]},
-   {"Hessian 满足二阶条件",
-    FullSimplify[And @@ Thread[Eigenvalues[hessianDealer] < 0], Assumptions -> $Assumptions]},
-   {"阈值排序成立",
-    FullSimplify[OmegaNoRPMM <= OmegaNoRPMW0 <= OmegaRPMM, Assumptions -> $Assumptions]}
+  {"Displayed formulas agree", TrueQ[rawFormulaEvidence]},
+  {"Strict interior Hessian criterion holds", TrueQ[rawSOCEvidence]},
+  {"Threshold ordering holds on stated domain", TrueQ[rawRankingEvidence]}
 };
-
-checkRows = Join[
-   {{"Check", "Result"}},
-   ({#[[1]], toS[#[[2]]]} & /@ checks)
-];
+checkRows = Join[{{"Check", "Result"}},
+  ({#[[1]], toS[#[[2]]]} & /@ checks)];
 ```
 
-Export `checkRows` to CSV after the `.wl` derivation is complete.
+A False technical assertion requires investigation; distinguish an incorrect claim from unresolved evidence. A zero Hessian need not exclude a maximum, and a boundary maximum need not satisfy an interior FOC. Choose the appropriate argument. Export checks after the stepwise derivation, retaining all mathematical evidence and stated proof boundaries.

@@ -1,0 +1,40 @@
+# Research and delivery requirements
+
+Apply this reference to the requested mathematical derivation or research-report scope. A short explanation or local correction needs proportionate checks, not a full research pipeline. User-specified methods, language, notation and output locations take priority.
+
+## Model, derivation and delivery
+
+- Start from the original model primitives, player decisions, timing and constraints. Run dependent derivation steps incrementally, retain inspectable intermediate results, then assemble a complete reproducible script in the user's naming and section style.
+- Do not silently add economic assumptions, alter parameter restrictions, replace continuous types with a small discrete model, or change a fixed strategy into a state-dependent commitment. Clarify missing information that determines the answer, reusing already agreed model records.
+- Define necessary auxiliary notation at first use, explain its relation to the primitive expressions and substitute back into model parameters in final results. Distinguish internal program variables from additional economic assumptions.
+- For a complete solution or comparison, generate the final script summary and report tables from the same derived result catalog. Include every requested scenario and relevant price, fee, demand, profit, welfare and validity condition with solved decision variables substituted. Do not add inapplicable economic quantities or hide final results only in appendices.
+- Long tables may be grouped or paginated with repeated headers; preserve every required scenario/item. Use suitable LaTeX when complex Markdown formulas do not render correctly. A threshold table does not replace the complete result table.
+- Inventory required scenarios and results independently of whichever exports exist. Keep unresolved or unproved entries visible with explanations; do not fabricate them or silently drop them. A grid keyword or passing checker cannot establish complete coverage.
+- Accept mathematical validity/domain, equilibrium concept, reproducibility, report completeness and rendering separately. FOC stationary points are not automatically equilibria; numerical examples do not replace symbolic proof. Do not alter the model or hide failures merely to obtain passing checks.
+- Report only verification actually performed, with its limits. If a complete code appendix is requested, include the actual executed version rather than excerpts.
+
+## Report quality and rendering
+
+Read [report-quality-gate.md](report-quality-gate.md) before writing or revising derivation reports, scaling the review to the task. Keep the user-selected solver.
+
+- Map general decision variables, conditional responses, named equilibrium/social-optimum objects and evaluated derivatives. Use the project's own indexes and evaluation points; do not mechanically add equilibrium subscripts to general differentiation or alternative choices in an optimization.
+- Generate final body formulas, result tables and condition tables from the same evaluated symbolic objects. Place requested results near the corresponding derivations. Distinguish explicit solutions, conditional solutions, unsolved items, necessary conditions and optimality conclusions.
+- When correcting a formula, inspect related occurrences in abstracts, body, tables, captions, examples, conclusions, appendices and generator sources. Explanation-only requests do not authorize editing the report.
+- Review mathematics/domain, notation/prose, scenario coverage and rendering separately. Check counts, keyword matches and compilation success do not replace content acceptance. Disclose unresolved issues and do not accept an incomplete requested proof.
+- Put mathematical notation in proper inline or display math delimiters, including formulas inside tables. Render with the tools available in the user's environment and inspect formulas, tables and affected pages. Do not claim that source inspection alone is rendered-output inspection. Preserve requested PDF/LaTeX workflows; no machine-specific reader is required by this distribution.
+
+## Evidence and completion scope
+
+- Fix the requested target: identity, conditional solution, local/global optimum, Nash, SPE or independent audit. Record the original domain, variables, feasible/strategy sets, timing and conclusion quantifiers. Do not repeatedly request approval for agreed choices; identify additional assumptions explicitly.
+- Separate (1) executed technical assertions, (2) raw mathematical results and proof evidence, and (3) acceptance of the user's requested deliverable. A nonempty, structurally valid, strictly Boolean `checks` table certifies only its registered assertions. Preserve raw conditions, counterexamples and unresolved expressions separately.
+- Classify an explicitly stated claim, domain and quantifiers as `proved`, `refuted` or `unresolved`. `TrueQ` returning False does not automatically refute a claim. Timeout, unevaluated output or unknown conditions remain unresolved. An exact feasible counterexample may complete an audit, but does not prove the original proposition or its opposite universally.
+- Preserve all candidate roots, validity domains, selection rationale and unresolved branches. `First` is allowed for a justified selection; a single generic `Solve` result does not cover every degenerate parameter. Do not silently discard unknown feasibility when filtering candidates.
+- Check nonempty feasibility, denominators, branches, boundaries, degenerate parameters and attainment of an optimum. If domain nonemptiness is unresolved, say so; a true implication on an empty domain does not establish feasible equilibrium existence.
+- Choose appropriate optimality arguments: interior calculus, concavity, KKT, boundary comparisons or direct objective comparisons, with their regularity and necessary/sufficient scope. A strictly negative Hessian is not necessary for every maximum; a characteristic-polynomial identity alone proves no optimality.
+- Local optimality concerns a feasible neighborhood; global optimality covers all feasible alternatives. Distinguish an attained maximum from an unattained supremum. FOCs, necessary KKT conditions or local second-order evidence do not automatically establish a global claim.
+- Nash verification considers each player's allowed unilateral deviations while other strategies remain fixed, including deviations across regimes or active constraints. Joint deviations or finite numerical grids are not substitutes. Distinguish weak/strict and pure/mixed claims as required.
+- SPE verification needs the appropriate full strategy profile and sequential optimality in the relevant subgames, including off-path continuations. Preserve the distinction between continuation correspondences and chosen continuation strategies. A profitable continuation following one deviation can refute robustness to all continuations without refuting every selection-dependent SPE.
+- A conditional derivation may be complete within its specified domain while global optimality or SPE remains outside scope. Disclose that limit, and do not omit proofs the user actually requested. An unresolved required positive claim prevents accepting that proof.
+- Distinguish algebraic identity, solution-set equivalence and one-way implication. Construct residuals from primitive expressions before equations evaluate or solutions are substituted. Cancelling factors, clearing denominators, squaring and branch operations must preserve their domain and sign conditions.
+- Numerical benchmarks and simulations are included when requested or needed; supplied parameter values alone do not require simulation. Numeric checks do not replace symbolic proof.
+- Carry conditions, quantifiers and unresolved scope from derivation into report body, abstract and conclusions. Formula representation status differs from proof status. Pure theory does not require statistical tests or simulation; writing scores and simulated peer review are not independent mathematical proofs.

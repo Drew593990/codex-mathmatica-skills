@@ -5,11 +5,20 @@ description: Use when the user asks for "mathmatica user", Wolfram Language, Mat
 
 # Mathmatica User
 
+For mathematical derivation or research-report tasks, read [the research and delivery requirements](../paper-proposition-mathematica/references/research-delivery-rules.md). These define the derivation, coverage, reproducibility, and rendering requirements for the requested task. Apply only the parts relevant to the requested task; do not expand short explanations into a full research pipeline.
+
 This skill defines the `mathmatica user` agent profile for Codex. Use it when the task is to build a mathematical model and derive results through Mathematica/Wolfram Language rather than only Python, prose, or manual algebra.
 
-The user intentionally names the agent `mathmatica user`; keep that trigger spelling, while using the installed Wolfram/Mathematica executable paths.
+The trigger spelling `mathmatica user` is intentional; preserve it for compatibility while discovering the installed Wolfram/Mathematica executable.
 
 ## Role
+
+When producing or revising a mathematical report, read
+[the report quality gate](../paper-proposition-mathematica/references/report-quality-gate.md)
+before drafting final formulas. It covers evaluated notation, same-source body
+and tables, result/condition coverage, and separate content/PDF acceptance.
+Apply a focused version for a small revision; do not impose a full research
+pipeline on a short explanation. Kernel checks alone do not accept a report.
 
 Act as a mathematical modeling and symbolic-derivation agent.
 
@@ -19,7 +28,7 @@ Primary responsibilities:
 - Translate model primitives into Wolfram Language from first principles.
 - Derive first-order conditions, second-order conditions, equilibrium candidates, feasibility constraints, and comparative statics.
 - Use Mathematica/Wolfram to solve and simplify formulas.
-- Run numeric benchmarks and simulations when parameters are specified.
+- Run numeric benchmarks or simulations when requested or needed for the agreed task; parameter values alone do not require simulation.
 - Export reproducible artifacts. For economics/model-derivation tasks with a user-provided style exemplar, the primary artifact should normally be a complete `.wl` script written close to that exemplar's Mathematica/WL code style. CSV/check tables are secondary verification artifacts. Generate `.nb` only when the user explicitly asks for it.
 
 ## Wolfram Runtime
@@ -68,7 +77,7 @@ In that branch:
 
 1. Read the user's current style examples if a path is provided or known. If several examples exist, inspect representative `.wl`, `.m`, and `.nb` files before writing new code.
 2. Run Mathematica step by step through small kernel inputs; do not treat a single final script run as the whole derivation process.
-3. Preserve visible intermediate objects: model primitives, demand, profit, FOC, SOC/Hessian, full solution lists, selected solution, threshold equations, feasible regions, rankings, numeric checks, and final grids.
+3. Preserve visible intermediate objects: model primitives, demand, profit, FOC, SOC/Hessian, full solution lists, selected solution, threshold equations, feasible regions, rankings, applicable numeric checks, and final grids.
 4. Produce a complete `.wl` as the main deliverable. It should be readable as a human derivation script, not just a compact batch exporter.
 5. Generate `.nb` only if the user explicitly asks for it.
 6. Do not introduce unexplained shortcut symbols after model setup. If a new abbreviation is unavoidable, define it immediately in a comment and verify the expanded expression.
@@ -89,16 +98,17 @@ scriptDir = If[StringQ[$InputFileName] && $InputFileName =!= "",
    Directory[]
 ];
 
-ass = rho >= 0 && gamma >= 0 && Omega >= 0;
+(* Use the original model domain; do not import assumptions from this template. *)
+ass = modelAssumptions;
 toS[expr_] := ToString[expr, InputForm];
 
 (* 1. Model setup *)
 (* 2. Objective functions *)
 (* 3. FOC derivation *)
 (* 4. SOC/Hessian checks *)
-(* 5. Equilibrium solving *)
+(* 5. Candidate solving and requested optimality/equilibrium proof *)
 (* 6. Feasibility constraints *)
-(* 7. Numeric benchmark and simulation *)
+(* 7. Numeric benchmark and simulation, when requested/applicable *)
 (* 8. Export outputs *)
 ```
 
@@ -125,15 +135,21 @@ Use `FullSimplify[..., ass]` when simplifying model results:
 
 ```wolfram
 B = FullSimplify[1 + gamma + gamma*rho, ass];
-pNw = FullSimplify[p /. First[Solve[FOCDealerSym, p]], ass];
+solDealerAll = Solve[FOCDealerSym, p, Reals];
+(* Inspect all branches and conditions; extract only a justified singleton. *)
+If[Length[solDealerAll] != 1, Print["UNRESOLVED_SELECTION"]; Exit[1]];
+pNw = FullSimplify[p /. First[solDealerAll], ass];
 ```
 
 Use `Solve` for closed-form systems and `Reduce` when feasibility regions or parameter restrictions matter:
 
 ```wolfram
-sol = FullSimplify[First[Solve[foCs, vars]], ass];
+solAll = Solve[foCs, vars, Reals];
+solutionRegion = Reduce[And @@ Join[Flatten[{foCs}], {ass, feasibilityConstraints}], vars, Reals];
 region = FullSimplify[Reduce[{wNcol >= 0, Omega >= 0}, Omega, Reals], ass];
 ```
+
+A singleton returned by `Solve` is not a proof of economic uniqueness. Preserve its parameter conditions and investigate degenerate cases as required. Use `First` only after justified selection; `Reduce`, patterns and explicit branch maps are equally valid. Unknown feasibility must remain unresolved, not silently filtered out.
 
 Use `D` for derivatives and Hessians:
 
@@ -152,15 +168,17 @@ charOK = FullSimplify[
 ];
 ```
 
+`charOK` checks a polynomial identity only. Negative definiteness and optimality need separate evidence. A strict Hessian test can be sufficient in appropriate smooth interior cases, but is not necessary for every constrained, boundary or degenerate optimum.
+
 ### Checks Table
 
-Every derivation script must create a `checks` list. Each check result must be exactly one Boolean value (`True` or `False`), not a list, association, symbolic expression, `ConditionalExpression`, numeric benchmark table, or unsimplified formula. Do not put raw `And @@ focChecks` into `checks`; wrap symbolic conjunctions with `TrueQ[FullSimplify[..., Assumptions -> ass]]`:
+Every reproducible full derivation script must create a nonempty technical `checks` list. Preserve raw mathematical results separately, with statement, assumptions, quantifiers and scope. `TrueQ[raw] == False` alone does not distinguish refutation from unresolved computation. Each check result must be exactly one Boolean value (`True` or `False`), not a list, association, symbolic expression, `ConditionalExpression`, numeric benchmark table, or unsimplified formula. Do not put raw `And @@ focChecks` into `checks`; wrap symbolic conjunctions with `TrueQ[FullSimplify[..., Assumptions -> ass]]`:
 
 ```wolfram
 checks = {
-   {"FOC system implies claimed equilibrium",
+   {"Two displayed candidate formulas are identical",
     TrueQ[FullSimplify[pNw == (1 + B w)/(1 + B), ass]]},
-   {"Hessian characteristic polynomial matches expected eigenvalues",
+   {"Hessian characteristic polynomial identity",
     TrueQ[charOK]}
 };
 ```
@@ -168,6 +186,11 @@ checks = {
 Then export it and hard-fail the script if any check is malformed or false:
 
 ```wolfram
+If[!ListQ[checks] || Length[checks] == 0 ||
+   !AllTrue[checks, MatchQ[#, {_String, _}] &&
+     StringLength[StringTrim[First[#]]] > 0 &],
+   Print["CHECKS_EMPTY_OR_MALFORMED"]; Exit[1]
+];
 checkResults = Last /@ checks;
 checksAreBoolean = VectorQ[checkResults, BooleanQ];
 allChecksTrue = TrueQ[checksAreBoolean && And @@ checkResults];
@@ -187,7 +210,17 @@ If[! allChecksTrue,
 ];
 ```
 
-The task is not complete if any check result is not a Boolean `True`. For paper proposition scripts, also run the `paper-proposition-mathematica/scripts/validate_wl_derivation.py` validator when available, but treat that validator as a secondary text/style check. If the validator says `RUNTIME_VALIDATION_SKIPPED` or cannot find Wolfram, this does not prove runtime success; still run the `.wl` directly with the discovered or user-provided Wolfram executable, for example `& $wolframExe -script '<file.wl>'`.
+Run the final file once through [the runtime validator](../paper-proposition-mathematica/scripts/validate_wl_derivation.py), using the actual executable and a task-specific work directory. After verifying the executable, use:
+
+```powershell
+python '<skill-directory>/paper-proposition-mathematica/scripts/validate_wl_derivation.py' '<absolute-path-to-script.wl>' --wolfram '<discovered-wolfram-executable>' --work-dir '<task-directory>/runtime' --timeout 180
+```
+
+The wrapper executes the file and checks a nonempty list of `{nonempty string, Boolean}` rows. Success requires the current run's unique completion marker and matching process status; `Exit[0]` inside the target is incomplete. A missing/unlaunchable runtime fails (4), execution failure fails (5), timeout fails (6); check failures use 21–26. Preserve the command, output, exit status and actual check scope. No second full run is needed when this run supplies the evidence.
+
+Style tokens are advisory by default; `--strict-style` makes the same heuristic style check blocking (3), not mathematically authoritative. Explicit `--no-runtime` reports `TEXT_VALIDATION_OK` and `RUNTIME_VALIDATION_NOT_REQUESTED`; this does not establish execution. Missing runtime is not a successful fallback. `RUNTIME_VALIDATION_OK` and the compatibility alias `VALIDATION_OK` mean only that the registered technical assertions passed, not that every mathematical claim or an equilibrium was proved.
+
+An established refutation can complete an audit. A conditional derivation can be complete within its stated scope; passing checks do not prove global optimality. An unresolved claim required by the user remains incomplete.
 
 ### CSV Export
 
@@ -240,11 +273,11 @@ p^N(w)=\frac{1+Bw}{1+B}.
 $$
 ```
 
-Avoid complex formulas inside Markdown tables.
+Preserve all required result and condition tables. If formulas render poorly in Markdown, use suitable LaTeX, grouping or pagination and inspect the rendered output.
 
 ## Context7 Documentation Notes
 
-When current Wolfram Language syntax is uncertain, use context7 with library ID `/websites/reference_wolfram_language` if available, or consult the official Wolfram Language reference at https://reference.wolfram.com/language/.
+When current Wolfram Language syntax is uncertain, use Context7 with library ID `/websites/reference_wolfram_language` when available, or consult the official Wolfram Language reference at https://reference.wolfram.com/language/.
 
 Useful documentation topics:
 
@@ -261,12 +294,11 @@ Context7 examples may be generic. Prefer local execution with the discovered Wol
 ## Workflow
 
 1. **Clarify the model primitives**
-   - Identify players, decision variables, constraints, parameter restrictions, objective functions, timing, and equilibrium concept.
+   - Reuse the model record to identify players, decision variables, constraints, parameter restrictions, objectives, timing, conclusion quantifiers and requested proof level. Do not silently add assumptions or ask again about fixed choices.
    - Preserve the user's notation where possible.
 
 2. **Create a task folder**
-   - If generating multiple artifacts, create or use a task-specific subfolder under the user's requested output path.
-   - Place generated files in the user-designated output location. Do not write to system drives or unrelated project folders without explicit approval.
+   - If generating multiple artifacts, use a task-specific folder under the user-approved location and respect their local path conventions.
 
 3. **Write a Wolfram Language script**
    - Start from the full model equations, not from previously derived Python formulas.
@@ -284,28 +316,24 @@ Context7 examples may be generic. Prefer local execution with the discovered Wol
 
 4. **Make formula checks explicit**
    - Build a `checks` table with boolean statements such as:
-     - FOC system implies claimed equilibrium.
-     - Hessian characteristic polynomial matches expected eigenvalues.
+     - A candidate satisfies primitive FOCs (this alone is not an equilibrium proof).
+     - A Hessian characteristic polynomial identity, distinct from its sign or optimality.
      - closed-form thresholds match simplified expressions.
      - numeric values match benchmark formulas.
      - raw FOC or constraint equations are algebraically equivalent to the economically interpretable target form, such as inverse-hazard markup, unit margin, threshold boundary, or welfare ranking.
    - For important economic transformations, do not accept the first shape returned by `FullSimplify` as the final derivation. The agent should choose the target economic form, construct residuals for both the raw Mathematica expression and the target expression, multiply only by factors that are nonzero under `ass`, and verify equivalence with `TrueQ[FullSimplify[... , Assumptions -> ass]]`. Use `Together`, `Cancel`, `Factor`, and `Reduce` as diagnostic tools when the sign, denominator, or feasible region matters.
-   - Force every check result through a Boolean claim, for example `TrueQ[FullSimplify[...]]` or an exact equality that evaluates to `True`/`False`.
+   - Preserve raw results first. Convert only registered technical assertions to Boolean values; retain proved/refuted/unresolved mathematical evidence separately.
    - Export the table as CSV.
-   - Add a hard-fail guard using `VectorQ[Last /@ checks, BooleanQ]` and `And @@ (Last /@ checks)`; call `Exit[1]` if malformed or false.
-   - Include at least one check for each major result: FOC solution, SOC/Hessian, feasibility threshold, and numeric benchmark.
+   - Before `Last /@ checks`, require a nonempty list of two-element rows with nonblank string names, then Boolean results and their conjunction; fail if malformed or false.
+   - Cover each required claim with relevant evidence: branch/domain, residual consistency, appropriate optimality and deviations, thresholds and applicable numeric benchmarks. Check counts do not certify proof coverage.
 
 5. **Run Mathematica**
-   - Execute the script with `wolfram.exe -script`.
-   - Use the explicit discovered executable path, not a bare command, when `PATH` is unreliable. Prefer a user-provided path, environment variable, or detected platform install location; do not hardcode a machine-specific path in reusable scripts.
-   - Read stdout and confirm exit code.
-   - Confirm stdout contains the script's success marker such as `ALL_CHECKS_TRUE`, and inspect the exported checks CSV.
-   - If `validate_wl_derivation.py` reports `RUNTIME_VALIDATION_SKIPPED`, record it as a validator limitation and rely on the explicit `wolfram.exe -script` run for runtime evidence.
-   - Inspect exported CSV files for failures.
-   - If `wolfram.exe -script` reports syntax errors, fix and rerun; do not fall back to prose-only derivation.
+   - Use the wrapper command above with the explicit executable and task-specific work directory.
+   - Inspect output, exit code, completion marker and exported checks. Fix failures and rerun affected work.
+   - Disclose timeouts and unresolved symbolic results; these are not refutations.
+   - Keep stepwise derivation evidence alongside the final reproducibility run.
 
 6. **Report in the user's preferred language**
-   - Match the language the user communicates in, unless they request another language.
    - Summarize the model, derivation path, equilibrium formulas, numeric outputs, and any caveats.
    - Give clickable local file links when reporting artifacts.
 
@@ -315,35 +343,35 @@ For a full derivation task, produce:
 
 - `<task-name>.wl`: full Wolfram Language derivation script.
 - `<task-name>_symbolic.csv`: symbolic derivation table.
-- `<task-name>_numeric.csv`: numeric benchmark table.
+- `<task-name>_numeric.csv`: numeric benchmark table when requested/applicable.
 - `<task-name>_checks.csv`: formula/SOC/equilibrium checks.
 - `<task-name>_simulation.csv`: simulation table when applicable.
 - `<task-name>_plot.png`: plot when applicable.
-- `<task-name>_report.md`: short Markdown report in the user's preferred language.
+- `<task-name>_report.md`: Report in the user's preferred language, with detail matching the requested derivation and results; concise chat does not shorten a requested full report.
 
 ## Quality Gates
 
 Before claiming completion:
 
 - The Mathematica script must run with exit code `0`.
-- Runtime success must come from an explicit Wolfram command-line run of the generated `.wl`; text validators and style validators are not substitutes for this run.
-- The checks CSV must have no failed check, and every check result must be exactly one Boolean value.
+- Runtime success must come from actual Wolfram execution, including the wrapper run; static/style inspection is not a substitute.
+- The checks table must be nonempty, structurally valid and entirely Boolean True. Separately accept the requested mathematical claims.
 - Scripts with malformed checks must exit nonzero through the hard-fail guard; do not accept a script that exits `0` while `checks` contains lists, associations, numeric tables, or symbolic expressions.
-- Numeric benchmark values must be inspected directly.
+- When numeric benchmarks are part of the task, inspect their values directly.
 - If a plot is generated, the image file must exist and have nonzero size.
 - If comparing against Python or paper formulas, include a short equivalence note for expressions that differ only by algebraic rearrangement.
 - Generated Markdown must avoid broken formula rendering:
   - use `$$...$$` for display equations;
-  - avoid putting complex formulas inside Markdown tables;
+  - preserve full result tables using suitable LaTeX, grouping or pagination when needed;
   - avoid sandbox links or pseudo-formula bracket artifacts.
 
 ## Common Pitfalls
 
-- Do not treat a Python/SymPy result as proof. Mathematica should rederive from model primitives.
+- When Mathematica is requested, independently derive from primitives in Mathematica before comparing other sources. Mathematical validity depends on assumptions, logic and evidence, not the solver brand; do not import another source answer as the derivation.
 - Do not only open `WolframNB.exe`; also run a command-line `.wl` script for reproducibility.
 - Do not rely on `wolframscript.exe` output if it returns blank stdout; use `wolfram.exe -script` or `wolfram.exe -noprompt`.
-- Do not use simultaneous replacement like `expr /. {x -> y, y -> x}` when true variable swapping is needed; construct the rival expression explicitly or use a temporary variable.
+- One-pass `expr /. {x -> y, y -> x}` can swap symbols. Distinguish it from repeated replacement, sequential composition and changes to function arguments; verify the intended model symmetry in the transformed expression.
 - Do not use machine decimals in symbolic derivation sections; substitute decimals only in numeric benchmark sections.
 - Do not use `Simplify` without assumptions when signs, square roots, feasibility regions, or SOC results depend on parameter restrictions.
-- Do not skip SOC/Hessian checks when the user asks for equilibrium derivation.
+- For equilibrium claims establish appropriate optimality and unilateral-deviation conditions. Use Hessian/SOC where appropriate; boundaries, constraints, nonsmoothness or degeneracy may require KKT, direct comparison or other valid arguments.
 - Do not ignore feasibility constraints such as nonnegative wholesale prices, nonnegative demand, or square-root domains.

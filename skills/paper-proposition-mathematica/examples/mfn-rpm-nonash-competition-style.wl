@@ -1,4 +1,8 @@
 (* ::Package:: *)
+(* Scope: four conditional algebraic stationary-point derivations and table style.
+   The FOC/structure checks below do not establish nonnegative demand,
+   global optimality, participation validity or complete equilibrium over
+   all declared parameters. Existing names are retained, not proof labels. *)
 
 (* ::Input:: *)
 (* ::Section::*)(*Basic Model with Cross-Price Effects (alpha),4 cases (NO Nash Bargaining) Demand:q1=1-p1+\[Alpha] p2 q2=a-p2+\[Alpha] p1 Market 1 competition constraint:p1=w1 Cases:1) NoMFN+NoRPM 2) MFN+NoRPM 3) NoMFN+RPM 4) MFN+RPM*)
@@ -39,24 +43,27 @@ p1FromW1[w1_]:=w1;
 
 
 (* ::Input:: *)
-p2BR[w1_,w2_]=FullSimplify[p2/. First@Solve[D[pi2[p2,w2,p1FromW1[w1]],p2]==0,p2],Assumptions->$Assumptions]
+solP2BRAll=Solve[D[pi2[p2,w2,p1FromW1[w1]],p2]==0,p2];
+(* Linear FOC in p2; nonzero slope establishes algebraic regularity. *)
+selectionP2BR=FullSimplify[D[pi2[p2,w2,p1FromW1[w1]],{p2,2}]!=0,Assumptions->$Assumptions];
+If[!ListQ[solP2BRAll] || Length[solP2BRAll]!=1 || !TrueQ[selectionP2BR],Print["P2_SELECTION_UNRESOLVED"];Exit[1]];
+p2BR[w1_,w2_]=FullSimplify[p2/. First[solP2BRAll],Assumptions->$Assumptions]
+
+
 
 
 (* ::Input:: *)
-(*Verify: raw FOC residual and best-response target residual are equivalent*)
+
+
+
+(* ::Input:: *)
+(* Verify the original public example's FOC/target equivalence.
+   These residuals differ by the constant factor -1, which is nonzero. *)
 p2BRRawFOCResidual=FullSimplify[D[pi2[p2,w2,p1FromW1[w1]],p2],Assumptions->$Assumptions];
 p2BRTargetResidual=FullSimplify[2 p2-(a+\[Alpha] w1+w2),Assumptions->$Assumptions];
-p2BRMultiplierNonzeroCheck=TrueQ[FullSimplify[2!=0,Assumptions->$Assumptions]];
-p2BRTransformCheck=TrueQ[p2BRMultiplierNonzeroCheck&&FullSimplify[p2BRRawFOCResidual+p2BRTargetResidual==0,Assumptions->$Assumptions]]
+p2BRRawTransformEvidence=FullSimplify[p2BRRawFOCResidual==-p2BRTargetResidual,Assumptions->$Assumptions];
+p2BRTransformCheck=TrueQ[p2BRRawTransformEvidence];
 
-
-
-
-(* ::Input:: *)
-
-
-
-(* ::Input:: *)
 p2BRNoMFN[w1_,w2_]=p2BR[w1,w2]
 
 
@@ -77,6 +84,10 @@ piUNoMFNNoRPM[w1_,w2_]=FullSimplify[piU[w1,w2,p1FromW1[w1],p2BRNoMFN[w1,w2]],Ass
 focNoMFNNoRPM={D[piUNoMFNNoRPM[w1,w2],w1]==0,D[piUNoMFNNoRPM[w1,w2],w2]==0};
 
 solNoMFNNoRPMAll=FullSimplify[Solve[focNoMFNNoRPM,{w1,w2}],Assumptions->$Assumptions];
+(* The FOCs are linear in these decision variables. Nonzero determinant
+   validates their algebraic singleton on the stated domain, not economic optimality. *)
+selectionNoMFNNoRPM=FullSimplify[Det[D[piUNoMFNNoRPM[w1,w2],{{w1,w2},2}]]!=0,Assumptions->$Assumptions];
+If[!ListQ[solNoMFNNoRPMAll] || Length[solNoMFNNoRPMAll]!=1 || !TrueQ[selectionNoMFNNoRPM],Print["NoMFNNoRPM_SELECTION_UNRESOLVED"];Exit[1]];
 solNoMFNNoRPM=First@solNoMFNNoRPMAll
 
 
@@ -122,6 +133,10 @@ piUMFNNoRPM[w_]:=FullSimplify[piU[w,w,w,p2BRMFN[w]],Assumptions->$Assumptions];
 (* ::Input:: *)
 focMFNNoRPM=FullSimplify[D[piUMFNNoRPM[w],w]==0,Assumptions->$Assumptions];
 solMFNNoRPMAll=FullSimplify[Solve[focMFNNoRPM,w],Assumptions->$Assumptions];
+(* The FOCs are linear in these decision variables. Nonzero determinant
+   validates their algebraic singleton on the stated domain, not economic optimality. *)
+selectionMFNNoRPM=FullSimplify[Det[D[piUMFNNoRPM[w],{{w},2}]]!=0,Assumptions->$Assumptions];
+If[!ListQ[solMFNNoRPMAll] || Length[solMFNNoRPMAll]!=1 || !TrueQ[selectionMFNNoRPM],Print["MFNNoRPM_SELECTION_UNRESOLVED"];Exit[1]];
 solMFNNoRPM=First@solMFNNoRPMAll
 
 
@@ -148,7 +163,8 @@ mfnEq=<|"w1"->FullSimplify[w/. solMFNNoRPM,Assumptions->$Assumptions],"w2"->Full
 
 (* ::Input:: *)
 (*-----------------------4. Case 3:NoMFN+RPM-----------------------*)
-(*RPM:U sets retail p2 in market 2. With linear wholesale contract and D2 participation,w2 does not affect demand,so optimal sets w2=p2 (binding PC) to extract margin;then pi2=0.*)
+(* Conditional binding-PC branch: impose w2=p2, so pi2=0 algebraically.
+   Participation, demand signs and optimal branch selection are not established here. *)
 
 (*test sign*)
 
@@ -178,6 +194,10 @@ piUNoMFNRPM[w1_,p2_]:=FullSimplify[piU[w1,w2FromP2RPM[p2],p1FromW1[w1],p2],Assum
 focNoMFNRPM={D[piUNoMFNRPM[w1,p2],w1]==0,D[piUNoMFNRPM[w1,p2],p2]==0};
 
 solNoMFNRPMAll=FullSimplify[Solve[focNoMFNRPM,{w1,p2}],Assumptions->$Assumptions];
+(* The FOCs are linear in these decision variables. Nonzero determinant
+   validates their algebraic singleton on the stated domain, not economic optimality. *)
+selectionNoMFNRPM=FullSimplify[Det[D[piUNoMFNRPM[w1,p2],{{w1,p2},2}]]!=0,Assumptions->$Assumptions];
+If[!ListQ[solNoMFNRPMAll] || Length[solNoMFNRPMAll]!=1 || !TrueQ[selectionNoMFNRPM],Print["NoMFNRPM_SELECTION_UNRESOLVED"];Exit[1]];
 solNoMFNRPM=First@solNoMFNRPMAll
 
 
@@ -200,7 +220,9 @@ discRPMEq=<|"w1"->FullSimplify[w1/. solNoMFNRPM,Assumptions->$Assumptions],"w2"-
 
 
 (*-----------------------5. Case 4:MFN+RPM-----------------------*)
-(*MFN:w1=w2=w,p1=w.RPM:U sets p2,but must satisfy D2 PC:p2>=w for q2>0. Under-1<\[Alpha]<1 (stable demand),for given w the objective is linear in p2 with coefficient (\[Alpha]-1),hence p2 is minimized=>binding PC:p2=w.Then U chooses w.*)
+(* Conditional binding-PC branch: p2=w. The derivative holding w fixed is
+   (w-c)(\[Alpha]-1), whose sign also depends on w-c. Thus the declared
+   alpha domain alone does not justify this as a global optimal branch. *)
 
 
 
@@ -220,6 +242,10 @@ piUMFNRPM[w_]:=FullSimplify[piU[w,w,w,p2MFNRPM[w]],Assumptions->$Assumptions];
 (* ::Input:: *)
 focMFNRPM=FullSimplify[D[piUMFNRPM[w],w]==0,Assumptions->$Assumptions];
 solMFNRPMAll=FullSimplify[Solve[focMFNRPM,w],Assumptions->$Assumptions];
+(* The FOCs are linear in these decision variables. Nonzero determinant
+   validates their algebraic singleton on the stated domain, not economic optimality. *)
+selectionMFNRPM=FullSimplify[Det[D[piUMFNRPM[w],{{w},2}]]!=0,Assumptions->$Assumptions];
+If[!ListQ[solMFNRPMAll] || Length[solMFNRPMAll]!=1 || !TrueQ[selectionMFNRPM],Print["MFNRPM_SELECTION_UNRESOLVED"];Exit[1]];
 solMFNRPM=First@solMFNRPMAll
 
 
@@ -238,7 +264,7 @@ mfnRPMEq=<|"w1"->FullSimplify[w/. solMFNRPM,Assumptions->$Assumptions],"w2"->Ful
 (* ::Input:: *)
 
 
-(*-----------------------6. Summary Grid (4 cases)-----------------------*)
+(*-----------------------6. Conditional stationary-point summary (4 cases)-----------------------*)
 summaryRows4={{"\:6279\:53d1\:4ef7 (w_1)",discEq["w1"],mfnEq["w1"],discRPMEq["w1"],mfnRPMEq["w1"]},{"\:6279\:53d1\:4ef7 (w_2)",discEq["w2"],mfnEq["w2"],discRPMEq["w2"],mfnRPMEq["w2"]},{"\:96f6\:552e\:4ef7 (p_1)",discEq["p1"],mfnEq["p1"],discRPMEq["p1"],mfnRPMEq["p1"]},{"\:96f6\:552e\:4ef7 (p_2)",discEq["p2"],mfnEq["p2"],discRPMEq["p2"],mfnRPMEq["p2"]},{"\:9500\:91cf (q_1)",discEq["q1"],mfnEq["q1"],discRPMEq["q1"],mfnRPMEq["q1"]},{"\:9500\:91cf (q_2)",discEq["q2"],mfnEq["q2"],discRPMEq["q2"],mfnRPMEq["q2"]},{"\:4e0a\:6e38\:5229\:6da6 (\[Pi]_U)",discEq["piU"],mfnEq["piU"],discRPMEq["piU"],mfnRPMEq["piU"]},{"\:7ecf\:9500\:55462\:5229\:6da6 (\[Pi]_2)",discEq["pi2"],mfnEq["pi2"],discRPMEq["pi2"],mfnRPMEq["pi2"]},{"\:7ecf\:9500\:55461\:5229\:6da6 (\[Pi]_1)",0,0,0,0}};
 
 (*-----------------------7. Checks with hard-fail guard-----------------------*)
@@ -249,7 +275,7 @@ checks={
    {"MFN+NoRPM association has expected keys",Keys[mfnEq]===expectedKeys},
    {"NoMFN+RPM association has expected keys",Keys[discRPMEq]===expectedKeys},
    {"MFN+RPM association has expected keys",Keys[mfnRPMEq]===expectedKeys},
-   {"p2BR raw FOC is equivalent to best-response target form",p2BRTransformCheck},
+   {"p2BR raw FOC is equivalent to target form",p2BRTransformCheck},
    {"NoMFN+NoRPM FOCs hold at selected solution",TrueQ[FullSimplify[And@@(focNoMFNNoRPM/. solNoMFNNoRPM),Assumptions->$Assumptions]]},
    {"MFN+NoRPM FOC holds at selected solution",TrueQ[FullSimplify[focMFNNoRPM/. solMFNNoRPM,Assumptions->$Assumptions]]},
    {"NoMFN+RPM FOCs hold at selected solution",TrueQ[FullSimplify[And@@(focNoMFNRPM/. solNoMFNRPM),Assumptions->$Assumptions]]},
@@ -257,6 +283,10 @@ checks={
    {"summaryRows4 contains nine economic objects",Length[summaryRows4]===9}
 };
 
+If[!ListQ[checks] || Length[checks]==0 ||
+   !AllTrue[checks, MatchQ[#, {_String, _}] && StringLength[StringTrim[First[#]]]>0 &],
+   Print["CHECKS_EMPTY_OR_MALFORMED"];Exit[1]
+];
 checkResults=Last/@checks;
 checksAreBoolean=VectorQ[checkResults,BooleanQ];
 allChecksTrue=TrueQ[checksAreBoolean&&And@@checkResults];
